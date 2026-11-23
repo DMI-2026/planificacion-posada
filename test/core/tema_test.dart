@@ -38,25 +38,38 @@ void main() {
   });
 
   testWidgets('un NavigationRail muestra el fondo gris', (t) async {
-    await t.pumpWidget(MaterialApp(
-      theme: AppTheme.claro,
-      home: Scaffold(
-        body: NavigationRail(
-          selectedIndex: 0,
-          destinations: const [
-            NavigationRailDestination(icon: Icon(Icons.home), label: Text('A')),
-            NavigationRailDestination(icon: Icon(Icons.info), label: Text('B')),
-          ],
+    await t.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.claro,
+        home: Scaffold(
+          body: NavigationRail(
+            selectedIndex: 0,
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.home),
+                label: Text('A'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.info),
+                label: Text('B'),
+              ),
+            ],
+          ),
         ),
       ),
-    ));
+    );
     final rail = t.widget<NavigationRail>(find.byType(NavigationRail));
     final ctx = t.element(find.byType(NavigationRail));
-    final fondo = rail.backgroundColor ??
+    final fondo =
+        rail.backgroundColor ??
         Theme.of(ctx).navigationRailTheme.backgroundColor;
     expect(fondo, AppTheme.grisSidebar);
-    final cajas = t.widgetList<Material>(find.descendant(
-        of: find.byType(NavigationRail), matching: find.byType(Material)));
+    final cajas = t.widgetList<Material>(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.byType(Material),
+      ),
+    );
     expect(cajas.any((m) => m.color == AppTheme.grisSidebar), isTrue);
   });
 }

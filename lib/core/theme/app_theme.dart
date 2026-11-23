@@ -42,8 +42,10 @@ class AppTheme {
       surfaceContainerHighest: grisBorde,
       outlineVariant: grisBorde,
     );
-    const estiloSeleccionado =
-        TextStyle(color: grisSeleccionado, fontWeight: FontWeight.w600);
+    const estiloSeleccionado = TextStyle(
+      color: grisSeleccionado,
+      fontWeight: FontWeight.w600,
+    );
     const estiloNoSeleccionado = TextStyle(color: grisNoSeleccionado);
     return ThemeData(
       useMaterial3: true,
@@ -81,15 +83,18 @@ class AppTheme {
         backgroundColor: grisSidebar,
         surfaceTintColor: Colors.transparent,
         indicatorColor: grisIndicador,
-        iconTheme: WidgetStateProperty.resolveWith((estados) => IconThemeData(
-              color: estados.contains(WidgetState.selected)
-                  ? grisSeleccionado
-                  : grisNoSeleccionado,
-            )),
-        labelTextStyle: WidgetStateProperty.resolveWith((estados) =>
-            estados.contains(WidgetState.selected)
-                ? estiloSeleccionado
-                : estiloNoSeleccionado),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (estados) => IconThemeData(
+            color: estados.contains(WidgetState.selected)
+                ? grisSeleccionado
+                : grisNoSeleccionado,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (estados) => estados.contains(WidgetState.selected)
+              ? estiloSeleccionado
+              : estiloNoSeleccionado,
+        ),
       ),
     );
   }
