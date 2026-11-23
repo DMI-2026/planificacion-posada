@@ -2,16 +2,22 @@ import '../../../core/validacion/limites.dart';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/efectos/efectos.dart';
 import '../../../core/format/formato_fecha.dart';
 import '../../../core/navegacion/posada_scope.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/estados.dart';
 import '../../participantes/models/participante.dart';
 import '../models/evento.dart';
 import '../viewmodels/evento_view_model.dart';
+import 'cuenta_regresiva.dart';
 
 /// Pantalla "Inicio": datos del evento y resumen de la organización.
 class EventoView extends StatelessWidget {
-  const EventoView({super.key});
+  const EventoView({super.key, this.ahora});
+
+  /// Reloj inyectable para la cuenta regresiva (pruebas).
+  final DateTime Function()? ahora;
 
   @override
   Widget build(BuildContext context) {
@@ -26,17 +32,18 @@ class EventoView extends StatelessWidget {
       ]),
       builder: (context, _) {
         return Scaffold(
+          backgroundColor: Colors.transparent,
           floatingActionButton: vm.cargando || !vm.puedeEditar
               ? null
-              : FloatingActionButton.extended(
+              : BotonBrillante(
                   onPressed: () => showDialog<void>(
                     context: context,
                     builder: (_) => _DialogoEvento(vm: vm),
                   ),
-                  icon: const Icon(Icons.edit),
-                  label: Text(
-                    vm.evento == null ? 'Crear evento' : 'Editar evento',
-                  ),
+                  icono: Icons.edit,
+                  etiqueta: vm.evento == null
+                      ? 'Crear evento'
+                      : 'Editar evento',
                 ),
           body: _cuerpo(context, scope),
         );
@@ -49,83 +56,211 @@ class EventoView extends StatelessWidget {
     if (vm.cargando) return const EstadoCargando();
     final tema = Theme.of(context);
     final evento = vm.evento;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-      children: [
-        if (vm.error != null) BannerError(mensaje: vm.error!),
-        if (evento == null)
-          SizedBox(
-            height: 240,
-            child: EstadoVacio(
-              icono: Icons.celebration_outlined,
-              mensaje: vm.puedeEditar
-                  ? 'Todavía no hay evento. Crea la posada de la clase.'
-                  : 'El organizador aún no ha definido el evento',
-            ),
-          )
-        else
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(evento.nombre, style: tema.textTheme.headlineSmall),
-                  const SizedBox(height: 12),
-                  _Dato(
-                    icono: Icons.event,
-                    texto: formatearFechaHora(evento.fecha),
-                  ),
-                  if (evento.lugar.isNotEmpty)
-                    _Dato(icono: Icons.place, texto: evento.lugar),
-                  if (evento.notas.isNotEmpty)
-                    _Dato(icono: Icons.notes, texto: evento.notas),
-                ],
-              ),
-            ),
+    final hijos = <Widget>[
+      if (vm.error != null) BannerError(mensaje: vm.error!),
+      if (evento == null)
+        SizedBox(
+          height: 240,
+          child: EstadoVacio(
+            icono: Icons.celebration_outlined,
+            mensaje: vm.puedeEditar
+                ? 'Todavía no hay evento. Crea la posada de la clase.'
+                : 'El organizador aún no ha definido el evento',
           ),
-        const SizedBox(height: 16),
-        Text('Resumen', style: tema.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
+        )
+      else ...[
+        _Hero(evento: evento, ahora: ahora),
+        const SizedBox(height: 12),
+        _TarjetaDato(
+          icono: Icons.event,
+          etiqueta: 'Fecha',
+          texto: formatearFechaHora(evento.fecha),
+          acento: AppTheme.oro,
+        ),
+        if (evento.lugar.isNotEmpty)
+          _TarjetaDato(
+            icono: Icons.place,
+            etiqueta: 'Lugar',
+            texto: evento.lugar,
+            acento: AppTheme.auroraTurquesa,
+          ),
+        if (evento.notas.isNotEmpty)
+          _TarjetaDato(
+            icono: Icons.notes,
+            etiqueta: 'Notas',
+            texto: evento.notas,
+            acento: AppTheme.auroraMagenta,
+          ),
+      ],
+      const SizedBox(height: 16),
+      Text('Resumen', style: tema.textTheme.titleMedium),
+      const SizedBox(height: 8),
+      IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ChipConteo(
+            _Estadistica(
+              clave: 'confirmados',
               etiqueta: 'Asistentes confirmados',
               valor: scope.participantes.conteo(Asistencia.si),
+              acento: AppTheme.oro,
             ),
-            ChipConteo(
+            _Estadistica(
+              clave: 'pendientes',
               etiqueta: 'Aportaciones pendientes',
               valor: scope.aportaciones.pendientes,
+              acento: AppTheme.auroraMagenta,
             ),
-            ChipConteo(
+            _Estadistica(
+              clave: 'listas',
               etiqueta: 'Aportaciones listas',
               valor: scope.aportaciones.listas,
+              acento: AppTheme.auroraTurquesa,
             ),
           ],
         ),
-      ],
+      ),
+    ];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      children: EntradaEscalonada.lista(hijos),
     );
   }
 }
 
-class _Dato extends StatelessWidget {
-  const _Dato({required this.icono, required this.texto});
+class _Hero extends StatelessWidget {
+  const _Hero({required this.evento, this.ahora});
 
-  final IconData icono;
-  final String texto;
+  final Evento evento;
+  final DateTime Function()? ahora;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final tema = Theme.of(context);
+    return TarjetaCristal(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      inclinacion: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icono, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(texto)),
+          const LucesNavidenas(),
+          const SizedBox(height: 8),
+          TituloMagico(
+            evento.nombre,
+            textAlign: TextAlign.center,
+            estilo: tema.textTheme.headlineLarge?.copyWith(height: 1.15),
+          ),
+          const SizedBox(height: 16),
+          CuentaRegresiva(fecha: evento.fecha, ahora: ahora),
         ],
+      ),
+    );
+  }
+}
+
+class _TarjetaDato extends StatelessWidget {
+  const _TarjetaDato({
+    required this.icono,
+    required this.etiqueta,
+    required this.texto,
+    required this.acento,
+  });
+
+  final IconData icono;
+  final String etiqueta;
+  final String texto;
+  final Color acento;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TarjetaCristal(
+        acento: acento,
+        radio: 20,
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: acento.withValues(alpha: 0.18),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Icon(icono, size: 22, color: acento),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    etiqueta,
+                    style: tema.textTheme.labelMedium?.copyWith(
+                      color: tema.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(texto, style: tema.textTheme.bodyLarge),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Estadistica extends StatelessWidget {
+  const _Estadistica({
+    required this.clave,
+    required this.etiqueta,
+    required this.valor,
+    required this.acento,
+  });
+
+  final String clave;
+  final String etiqueta;
+  final int valor;
+  final Color acento;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = Theme.of(context);
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: TarjetaCristal(
+          key: ValueKey('estadistica-$clave'),
+          acento: acento,
+          radio: 20,
+          inclinacion: false,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+          child: Semantics(
+            label: '$etiqueta: $valor',
+            excludeSemantics: true,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ContadorAnimado(
+                  valor: valor,
+                  estilo: tema.textTheme.displaySmall?.copyWith(color: acento),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  etiqueta,
+                  textAlign: TextAlign.center,
+                  style: tema.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

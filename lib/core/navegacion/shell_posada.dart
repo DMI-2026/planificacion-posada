@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,9 @@ import 'destinos.dart';
 
 /// Ancho a partir del cual se usa NavigationRail en vez de NavigationBar.
 const double anchoMinimoRail = 720;
+
+/// Destinos que caben en la barra inferior; si hay más, el resto va en «Más».
+const int destinosEnBarra = 4;
 
 /// Estructura de la app sobre el fondo «noche mágica»: navegación inferior de
 /// cristal en angosto, lateral en ancho, guirnalda de luces arriba y cambio de
@@ -24,6 +28,17 @@ class ShellPosada extends StatefulWidget {
 
 class _ShellPosadaState extends State<ShellPosada> {
   int _indice = 0;
+
+  /// Abre la hoja de cristal con los destinos que no caben en la barra.
+  Future<void> _abrirMas(BuildContext context) async {
+    final elegido = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (hoja) => _HojaMas(seleccionado: _indice),
+    );
+    if (elegido != null && mounted) setState(() => _indice = elegido);
+  }
 
   Widget _contenido(BuildContext context) {
     final reducido = movimientoReducido(context);
@@ -68,6 +83,7 @@ class _ShellPosadaState extends State<ShellPosada> {
       builder: (context, restricciones) {
         final ancho = restricciones.maxWidth >= anchoMinimoRail;
         final contenido = _contenido(context);
+        final barraEnMas = destinos.length > destinosEnBarra + 1;
         if (ancho) {
           return FondoNocheMagica(
             child: Scaffold(
@@ -78,33 +94,47 @@ class _ShellPosadaState extends State<ShellPosada> {
                     borde: const Border(
                       right: BorderSide(color: Color(0x33FFFFFF)),
                     ),
-                    child: NavigationRail(
-                      selectedIndex: _indice,
-                      labelType: NavigationRailLabelType.all,
-                      onDestinationSelected: (i) => setState(() => _indice = i),
-                      trailing: cerrar == null
-                          ? null
-                          : Expanded(
-                              child: Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: IconButton(
-                                    tooltip: 'Cerrar sesión',
-                                    icon: const Icon(Icons.logout),
-                                    onPressed: cerrar,
-                                  ),
-                                ),
-                              ),
-                            ),
-                      destinations: [
-                        for (final d in destinos)
-                          NavigationRailDestination(
-                            icon: Icon(d.icono),
-                            selectedIcon: Icon(d.iconoSeleccionado),
-                            label: Text(d.etiqueta),
+                    child: LayoutBuilder(
+                      builder: (context, caja) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: caja.maxHeight,
                           ),
-                      ],
+                          child: IntrinsicHeight(
+                            child: NavigationRail(
+                              selectedIndex: _indice,
+                              labelType: NavigationRailLabelType.all,
+                              onDestinationSelected: (i) =>
+                                  setState(() => _indice = i),
+                              trailing: cerrar == null
+                                  ? null
+                                  : Expanded(
+                                      child: Align(
+                                        alignment: Alignment.bottomCenter,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 16,
+                                          ),
+                                          child: IconButton(
+                                            tooltip: 'Cerrar sesión',
+                                            icon: const Icon(Icons.logout),
+                                            onPressed: cerrar,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                              destinations: [
+                                for (final d in destinos)
+                                  NavigationRailDestination(
+                                    icon: Icon(d.icono),
+                                    selectedIcon: Icon(d.iconoSeleccionado),
+                                    label: Text(d.etiqueta),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(child: contenido),
@@ -133,14 +163,31 @@ class _ShellPosadaState extends State<ShellPosada> {
             bottomNavigationBar: _Cristal(
               borde: const Border(top: BorderSide(color: Color(0x33FFFFFF))),
               child: NavigationBar(
-                selectedIndex: _indice,
-                onDestinationSelected: (i) => setState(() => _indice = i),
+                selectedIndex: math.min(
+                  _indice,
+                  barraEnMas ? destinosEnBarra : destinos.length - 1,
+                ),
+                onDestinationSelected: (i) {
+                  if (barraEnMas && i == destinosEnBarra) {
+                    _abrirMas(context);
+                  } else {
+                    setState(() => _indice = i);
+                  }
+                },
                 destinations: [
-                  for (final d in destinos)
+                  for (final d in destinos.take(
+                    barraEnMas ? destinosEnBarra : destinos.length,
+                  ))
                     NavigationDestination(
                       icon: Icon(d.icono),
                       selectedIcon: Icon(d.iconoSeleccionado),
                       label: d.etiqueta,
+                    ),
+                  if (barraEnMas)
+                    const NavigationDestination(
+                      icon: Icon(Icons.more_horiz),
+                      selectedIcon: Icon(Icons.more_horiz),
+                      label: 'Más',
                     ),
                 ],
               ),
@@ -167,6 +214,48 @@ class _Cristal extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(color: AppTheme.cristal, border: borde),
           child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Hoja de cristal con los destinos que no caben en la barra inferior.
+class _HojaMas extends StatelessWidget {
+  const _HojaMas({required this.seleccionado});
+
+  final int seleccionado;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: _Cristal(
+        borde: const Border(top: BorderSide(color: Color(0x33FFFFFF))),
+        child: Material(
+          type: MaterialType.transparency,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = destinosEnBarra; i < destinos.length; i++)
+                    ListTile(
+                      key: ValueKey('mas-${destinos[i].etiqueta}'),
+                      leading: Icon(
+                        i == seleccionado
+                            ? destinos[i].iconoSeleccionado
+                            : destinos[i].icono,
+                      ),
+                      title: Text(destinos[i].etiqueta),
+                      selected: i == seleccionado,
+                      onTap: () => Navigator.of(context).pop(i),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

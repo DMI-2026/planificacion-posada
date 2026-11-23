@@ -111,7 +111,18 @@ Teclas: `Enter` o `r` recompila, `q` sale (detiene el servidor y, si los inició
 ## 6. Roles: participantes y admin
 
 - **Participantes = cuentas registradas.** Al registrarse o iniciar sesión, la app crea el documento `participantes/<uid>` (solo `nombre` y `asistencia`, sin correo) si no existe. No hay invitados sin cuenta ni botón de agregar. Cada quien cambia **su propia** asistencia.
-- **Admin:** quien tiene un documento `admins/<uid>`. Puede editar el evento, cambiar la asistencia de cualquiera, quitar participantes y gestionar (asignar, marcar lista, eliminar) todas las aportaciones. Los demás solo asignarse o soltar aportaciones suyas/libres y marcar como lista las que llevan ellos.
+- **Admin:** quien tiene un documento `admins/<uid>`. Los permisos de cada rol, por módulo (las reglas de `firestore.rules` los hacen cumplir; todos los módulos exigen sesión iniciada para leer):
+
+| Módulo | Participante (cuenta registrada) | Admin |
+| --- | --- | --- |
+| Inicio (evento) | Solo lee | Crea y edita el evento |
+| Participantes | Cambia su propia asistencia | Cambia la de cualquiera y quita participantes |
+| Comida (votación) | Propone platillos y los borra si son suyos; un voto (cambiable o retirable) mientras la votación está abierta | Borra cualquier platillo; cierra y reabre la votación (no vota por otros) |
+| Itinerario | Solo lee | Crea, edita y borra actividades |
+| Aportaciones | Se asigna o suelta materiales libres o suyos y marca listos los suyos; crea y edita el monto de su aportación económica mientras no se reciba, y la borra | Gestiona todo: materiales, aportaciones económicas de cualquiera, marcar recibido, meta y borrado |
+| Árbol virtual | Cuelga hasta 10 adornos propios; los mueve, edita y quita (solo participantes registrados) | Quita cualquier adorno |
+| Intercambio | Se inscribe y edita sus deseos (hasta 3) con la inscripción abierta y sin sorteo; ve su asignación y, tras la revelación, todas | Abre y cierra la inscripción, hace el sorteo, lo revela y ve todas las asignaciones |
+
 - **Quitar a alguien** de la lista borra su documento `participantes/<uid>`; si esa persona vuelve a iniciar sesión, reaparece (sigue teniendo cuenta).
 
 ### Cómo nombrar admin
@@ -130,7 +141,8 @@ Las reglas impiden que la app cree o edite `admins`: solo se hace a mano. Cada p
 ```bash
 flutter analyze
 flutter test
-# Reglas de Firestore (requiere Modo B: Node y Java)
+# Reglas de Firestore (requiere Modo B: Node y Java); repite con cada archivo de test/firestore_rules/:
+# rest, votacion, itinerario, aportaciones, arbol, intercambio y config
 firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/rest_rules_test.js"
 ```
 

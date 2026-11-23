@@ -19,6 +19,7 @@ void main() {
         lista: true,
       );
       expect(a.toMap(), {
+        'tipo': 'material',
         'articulo': 'Ponche',
         'cantidad': 3,
         'responsable_id': 'p1',

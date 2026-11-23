@@ -9,6 +9,8 @@ import 'core/navegacion/sesion_activa.dart';
 import 'core/theme/app_theme.dart';
 import 'features/aportaciones/repositories/aportacion_repository.dart';
 import 'features/aportaciones/repositories/firestore_aportacion_repository.dart';
+import 'features/arbol/repositories/arbol_repository.dart';
+import 'features/arbol/repositories/firestore_arbol_repository.dart';
 import 'features/auth/repositories/admin_repository.dart';
 import 'features/auth/repositories/auth_repository.dart';
 import 'features/auth/repositories/firestore_admin_repository.dart';
@@ -17,8 +19,14 @@ import 'features/auth/viewmodels/auth_view_model.dart';
 import 'features/auth/views/puerta_sesion_view.dart';
 import 'features/evento/repositories/evento_repository.dart';
 import 'features/evento/repositories/firestore_evento_repository.dart';
+import 'features/intercambio/repositories/firestore_intercambio_repository.dart';
+import 'features/intercambio/repositories/intercambio_repository.dart';
+import 'features/itinerario/repositories/firestore_itinerario_repository.dart';
+import 'features/itinerario/repositories/itinerario_repository.dart';
 import 'features/participantes/repositories/firestore_participante_repository.dart';
 import 'features/participantes/repositories/participante_repository.dart';
+import 'features/votacion/repositories/firestore_votacion_repository.dart';
+import 'features/votacion/repositories/votacion_repository.dart';
 import 'firebase_options.dart';
 
 /// `--dart-define=USAR_EMULADOR=true` conecta Auth (9099) y Firestore (8080)
@@ -47,6 +55,10 @@ Future<void> main() async {
       eventoRepository: FirestoreEventoRepository(),
       participanteRepository: FirestoreParticipanteRepository(),
       aportacionRepository: FirestoreAportacionRepository(),
+      votacionRepository: FirestoreVotacionRepository(),
+      itinerarioRepository: FirestoreItinerarioRepository(),
+      arbolRepository: FirestoreArbolRepository(),
+      intercambioRepository: FirestoreIntercambioRepository(),
     ),
   );
 }
@@ -60,6 +72,10 @@ class PosadaApp extends StatefulWidget {
     required this.eventoRepository,
     required this.participanteRepository,
     required this.aportacionRepository,
+    required this.votacionRepository,
+    required this.itinerarioRepository,
+    required this.arbolRepository,
+    required this.intercambioRepository,
   });
 
   final AuthRepository authRepository;
@@ -67,6 +83,10 @@ class PosadaApp extends StatefulWidget {
   final EventoRepository eventoRepository;
   final ParticipanteRepository participanteRepository;
   final AportacionRepository aportacionRepository;
+  final VotacionRepository votacionRepository;
+  final ItinerarioRepository itinerarioRepository;
+  final ArbolRepository arbolRepository;
+  final IntercambioRepository intercambioRepository;
 
   @override
   State<PosadaApp> createState() => _PosadaAppState();
@@ -103,6 +123,10 @@ class _PosadaAppState extends State<PosadaApp> {
           eventoRepository: widget.eventoRepository,
           participanteRepository: widget.participanteRepository,
           aportacionRepository: widget.aportacionRepository,
+          votacionRepository: widget.votacionRepository,
+          itinerarioRepository: widget.itinerarioRepository,
+          arbolRepository: widget.arbolRepository,
+          intercambioRepository: widget.intercambioRepository,
           onCerrarSesion: _auth.cerrarSesion,
         ),
       ),
