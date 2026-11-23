@@ -8,7 +8,23 @@ import 'package:planificacion_posada/features/auth/repositories/fake_auth_reposi
 import 'package:planificacion_posada/features/evento/repositories/fake_evento_repository.dart';
 import 'package:planificacion_posada/features/participantes/models/participante.dart';
 import 'package:planificacion_posada/features/participantes/repositories/fake_participante_repository.dart';
+import 'package:planificacion_posada/features/arbol/repositories/fake_arbol_repository.dart';
+import 'package:planificacion_posada/features/intercambio/repositories/fake_intercambio_repository.dart';
+import 'package:planificacion_posada/features/itinerario/repositories/fake_itinerario_repository.dart';
+import 'package:planificacion_posada/features/votacion/repositories/fake_votacion_repository.dart';
 import 'package:planificacion_posada/main.dart';
+
+/// Ir a «Aportaciones», que en pantalla angosta vive bajo «Más».
+Future<void> irAAportaciones(WidgetTester tester) async {
+  if (find.byType(NavigationBar).evaluate().isNotEmpty) {
+    await tester.tap(find.text('Más'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mas-Aportaciones')));
+  } else {
+    await tester.tap(find.text('Aportaciones'));
+  }
+  await tester.pumpAndSettle();
+}
 
 Future<void> abrir(
   WidgetTester tester, {
@@ -42,13 +58,19 @@ Future<void> abrir(
       eventoRepository: FakeEventoRepository(),
       participanteRepository: participantes ?? FakeParticipanteRepository(),
       aportacionRepository: aportaciones ?? FakeAportacionRepository(),
+      votacionRepository: FakeVotacionRepository(),
+      itinerarioRepository: FakeItinerarioRepository(),
+      arbolRepository: FakeArbolRepository(),
+      intercambioRepository: FakeIntercambioRepository(),
     ),
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
-  testWidgets('el shell muestra los 3 destinos y Inicio vacío', (tester) async {
+  testWidgets('el shell muestra 4 destinos y «Más», e Inicio vacío', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -56,12 +78,22 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Inicio'), findsOneWidget);
     expect(find.text('Participantes'), findsOneWidget);
-    expect(find.text('Aportaciones'), findsOneWidget);
+    expect(find.text('Comida'), findsOneWidget);
+    expect(find.text('Itinerario'), findsOneWidget);
+    expect(find.text('Más'), findsOneWidget);
+    expect(find.text('Aportaciones'), findsNothing);
     expect(
       find.text('El organizador aún no ha definido el evento'),
       findsOneWidget,
     );
-    expect(find.text('Asistentes confirmados: 0'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('estadistica-confirmados')),
+        matching: find.text('0'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Asistentes confirmados'), findsOneWidget);
   });
 
   testWidgets(
@@ -163,8 +195,7 @@ void main() {
         ],
       ),
     );
-    await tester.tap(find.text('Aportaciones'));
-    await tester.pumpAndSettle();
+    await irAAportaciones(tester);
     expect(find.byIcon(Icons.delete_outline), findsNothing);
     Checkbox casilla(String id) => tester.widget(
       find.descendant(
@@ -192,8 +223,7 @@ void main() {
         ],
       ),
     );
-    await tester.tap(find.text('Aportaciones'));
-    await tester.pumpAndSettle();
+    await irAAportaciones(tester);
     expect(find.text('Pendientes: 1'), findsOneWidget);
     expect(find.text('Listas: 0'), findsOneWidget);
 
@@ -239,5 +269,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Participantes'), findsNothing);
+  });
+
+  const etiquetas = [
+    'Inicio',
+    'Participantes',
+    'Comida',
+    'Itinerario',
+    'Aportaciones',
+    'Árbol',
+    'Intercambio',
+  ];
+
+  testWidgets('angosto: los 7 destinos se alcanzan (los 3 últimos con «Más»)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await abrir(tester);
+    for (final e in etiquetas) {
+      if (etiquetas.indexOf(e) < 4) {
+        await tester.tap(find.text(e));
+      } else {
+        await tester.tap(find.text('Más'));
+        await tester.pumpAndSettle();
+        // La hoja lista exactamente los destinos que no caben en la barra.
+        expect(find.byKey(const ValueKey('mas-Aportaciones')), findsOneWidget);
+        expect(find.byKey(const ValueKey('mas-Inicio')), findsNothing);
+        await tester.tap(find.byKey(ValueKey('mas-$e')));
+      }
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: e);
+      final barra = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      expect(
+        barra.selectedIndex,
+        etiquetas.indexOf(e) < 4 ? etiquetas.indexOf(e) : 4,
+        reason: 'selección de $e',
+      );
+    }
+    // Tras elegir un destino de «Más» la hoja se cierra y se ve su pantalla.
+    expect(find.byKey(const ValueKey('mas-Árbol')), findsNothing);
+  });
+
+  testWidgets('ancho: el NavigationRail muestra los 7 destinos', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await abrir(tester);
+    for (final e in etiquetas) {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationRail),
+          matching: find.text(e),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: e);
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      expect(rail.selectedIndex, etiquetas.indexOf(e));
+    }
+  });
+
+  testWidgets('el rol se resuelve después: Itinerario muestra lo del admin', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await abrir(tester, admin: true);
+    await tester.tap(find.text('Itinerario'));
+    await tester.pumpAndSettle();
+    expect(find.text('Agregar actividad'), findsOneWidget);
+  });
+
+  testWidgets('no admin: Itinerario sin acciones de admin', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await abrir(tester);
+    await tester.tap(find.text('Itinerario'));
+    await tester.pumpAndSettle();
+    expect(find.text('Agregar actividad'), findsNothing);
   });
 }
