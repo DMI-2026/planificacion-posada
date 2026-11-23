@@ -21,7 +21,7 @@ Estructura feature-first: cada equipo agrega su feature en lib/features/<feature
 - [x] T4 (S3, S8) dependencias Firebase, repos Firestore, auth (login/registro) y main — worker
 - [x] T5 (S8) firestore.rules propias + firebase.json (reglas y emuladores) — worker; escrito, no desplegado; despliegue tras verificación
 - [x] T6 (S3, S5, S8) flutterfire configure --project=posada-dmi-2026 — worker
-- [ ] T7 (S9) git local, repo DMI-2026/planificacion-posada público, teams con write — parent
+- [x] T7 (S9) git local, repo DMI-2026/planificacion-posada público, teams con write — parent
 - [x] T8 (S8) límites de captura alineados con reglas + prueba de reglas en repo — worker
 - [x] T9 (L4) README y CONTRIBUTING para equipos — worker
 
@@ -44,3 +44,4 @@ Estructura feature-first: cada equipo agrega su feature en lib/features/<feature
 - L13: Verificación independiente de reglas (odd-verify): 75/75 casos en emulador, sin diferencias con las escrituras de la app.
 - L14: T7 parcial: repo DMI-2026/planificacion-posada creado (público), team-1..team-5 con permiso push; git local en rama feat/mvp-posada. Push pendiente de autorización.
 - L15: Pendiente del usuario: crear Firestore (northamerica-south1) y activar Email/Password en la consola de posada-dmi-2026; luego desplegar reglas. App Android sobrante en cafeteria-carsi pendiente de decisión.
+- L16: "Sí, súbelo a main" — MVP publicado como main en https://github.com/DMI-2026/planificacion-posada (push por el parent).
