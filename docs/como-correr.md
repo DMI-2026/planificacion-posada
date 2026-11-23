@@ -41,7 +41,7 @@ flutter devices
 flutter run -d <id>
 ```
 
-> **Nota para el profesor:** este modo requiere que en Firebase (`posada-dmi-2026`) estén creados Firestore y habilitado el acceso por Email/Password, y desplegadas las reglas (`firestore.rules`).
+> **Nota para el profesor:** la configuración en la nube es reproducible desde el repositorio: `firebase deploy --only firestore,auth --project posada-dmi-2026` crea la base de datos de Firestore (`northamerica-south1`) si no existe, despliega las reglas (`firestore.rules`) y habilita el acceso por Email/Password.
 
 Los datos son compartidos: no borres ni cambies lo que no sea tuyo.
 
