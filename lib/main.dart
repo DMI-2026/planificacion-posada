@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'core/config/emulador.dart';
 import 'core/navegacion/sesion_activa.dart';
 import 'core/theme/app_theme.dart';
 import 'features/aportaciones/repositories/aportacion_repository.dart';
@@ -19,14 +21,22 @@ import 'firebase_options.dart';
 
 /// `--dart-define=USAR_EMULADOR=true` conecta Auth (9099) y Firestore (8080)
 /// a los emuladores locales en vez de a la nube.
+///
+/// `--dart-define=EMULADOR_HOST=<IP>` fuerza el host (p. ej. teléfono físico).
 const _usarEmulador = bool.fromEnvironment('USAR_EMULADOR');
+const _emuladorHost = String.fromEnvironment('EMULADOR_HOST');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (_usarEmulador) {
-    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+    final host = hostEmulador(
+      esWeb: kIsWeb,
+      esAndroid: defaultTargetPlatform == TargetPlatform.android,
+      definido: _emuladorHost,
+    );
+    await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+    FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
   }
   runApp(
     PosadaApp(

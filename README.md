@@ -12,19 +12,21 @@ flutter pub get
 flutter run -d chrome
 ```
 
-Con el emulador local de Firestore/Auth (no toca datos reales):
+Con emuladores locales (no toca datos reales):
 
 ```bash
-firebase emulators:start
-flutter run -d chrome --dart-define=USAR_EMULADOR=true
+firebase emulators:start                                  # terminal 1
+flutter run -d chrome --dart-define=USAR_EMULADOR=true    # terminal 2
 ```
+
+Guía completa (Android, teléfono físico, problemas comunes): [docs/como-correr.md](docs/como-correr.md).
 
 ## Pruebas
 
 ```bash
 flutter analyze
 flutter test
-# Reglas de Firestore (requiere firebase-tools y Node 18+)
+# Reglas de Firestore (requiere firebase-tools, Node 20+ y Java 21+)
 firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/rest_rules_test.js"
 ```
 
