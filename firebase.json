@@ -1,6 +1,13 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "database": "(default)",
+    "location": "northamerica-south1"
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true
+    }
   },
   "emulators": {
     "auth": {
