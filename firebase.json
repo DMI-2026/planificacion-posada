@@ -1,0 +1,19 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {"platforms":{"android":{"default":{"projectId":"posada-dmi-2026","appId":"1:387658564854:android:2be02e8235d49d7ecf18d7","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"posada-dmi-2026","configurations":{"android":"1:387658564854:android:2be02e8235d49d7ecf18d7","web":"1:387658564854:web:ea98ba456b161077cf18d7"}}}}}
+}
