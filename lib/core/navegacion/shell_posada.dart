@@ -58,7 +58,7 @@ class _ShellPosadaState extends State<ShellPosada> {
                       ),
                   ],
                 ),
-                const VerticalDivider(width: 1),
+                const VerticalDivider(width: 1, thickness: 1),
                 Expanded(child: contenido),
               ],
             ),
