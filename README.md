@@ -19,6 +19,8 @@ firebase emulators:start                                  # terminal 1
 flutter run -d chrome --dart-define=USAR_EMULADOR=true    # terminal 2
 ```
 
+Para dar clase con los alumnos conectados a tu máquina: [Modo clase](docs/como-correr.md#5-modo-clase-los-alumnos-se-conectan-a-tu-máquina) (`./scripts/servir-clase.sh`).
+
 Guía completa (Android, teléfono físico, problemas comunes): [docs/como-correr.md](docs/como-correr.md).
 
 ## Pruebas

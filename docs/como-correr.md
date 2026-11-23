@@ -75,7 +75,40 @@ Cómo encontrar la IP de tu computadora:
 
 **Primer paso en la app:** los emuladores empiezan vacíos. Crea una cuenta en la pantalla de registro. Los datos se borran al detener el emulador.
 
-## 5. Pruebas
+## 5. Modo clase (los alumnos se conectan a tu máquina)
+
+Para dar clase: tu computadora corre los emuladores, compila la app web y la sirve en la red; cada alumno solo abre una URL en Chrome. El script lo hace todo (detecta tu IP, reutiliza emuladores que ya estén corriendo o los inicia, compila y sirve):
+
+```bash
+./scripts/servir-clase.sh                          # normal
+./scripts/servir-clase.sh --auto                   # recompila solo al cambiar lib/
+IP=192.168.1.20 PUERTO=8001 ./scripts/servir-clase.sh   # IP y puerto a mano
+```
+
+Teclas: `Enter` o `r` recompila, `q` sale (detiene el servidor y, si los inició el script, los emuladores guardando sus datos en `datos-emulador/`). Los logs quedan en `.servir-clase/`.
+
+**Qué hacen los alumnos:** conectarse a la **misma Wi-Fi**, abrir `http://<tu IP>:8000` en Chrome y registrar su cuenta (los emuladores solo tienen los datos de prueba). Tras cada recompilación deben recargar con `Ctrl+Shift+R`.
+
+**Qué cambio necesita qué:**
+
+| Cambio | Acción |
+|---|---|
+| Código en `lib/` | Recompilar (`r`, o `--auto`) y que los alumnos recarguen |
+| `firestore.rules` | Nada: el emulador recarga las reglas solo |
+| `firebase.json` | Reiniciar los emuladores (y el script) |
+
+**Problemas frecuentes:**
+
+| Síntoma | Solución |
+|---|---|
+| El puerto 5000 no funciona | En macOS lo usa AirPlay; por eso se usa el 8000. |
+| Los alumnos no conectan en redes de escuela | Muchas redes aíslan a los clientes entre sí; usa tu hotspot o un router propio. |
+| Dejó de funcionar al cambiar de red | La IP cambió; detén el script y vuelve a correrlo (recompila con la IP nueva). |
+| El firewall bloquea la conexión | Permite conexiones entrantes a `java`, `node` y `python3`. |
+
+**Advertencia:** cualquiera en esa red puede leer y escribir en los emuladores. Usa solo datos de prueba.
+
+## 6. Pruebas
 
 ```bash
 flutter analyze
@@ -84,7 +117,7 @@ flutter test
 firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/rest_rules_test.js"
 ```
 
-## 6. Problemas comunes
+## 7. Problemas comunes
 
 | Síntoma | Solución |
 |---|---|
