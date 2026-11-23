@@ -1,5 +1,7 @@
 # Cómo contribuir
 
+Para correr la app, mira [docs/como-correr.md](docs/como-correr.md); para desarrollar tu feature usa el **Modo B** (emuladores locales).
+
 ## Flujo por equipo
 1. Cada equipo hace **una feature** en `lib/features/<feature>/`.
 2. Crea tu rama desde `main`: `feat/<equipo>-<feature>` (ej. `feat/equipo3-cooperacion`).
