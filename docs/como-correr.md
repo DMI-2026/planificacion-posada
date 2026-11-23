@@ -23,7 +23,7 @@ flutter doctor
 ## 2. Clonar e instalar dependencias
 
 ```bash
-git clone https://github.com/DMI-2026/planificacion-posada.git
+git clone https://github.com/carsimax/planificacion-posada.git
 cd planificacion-posada
 flutter pub get
 ```
