@@ -4,6 +4,12 @@ rules_version = '2';
 // Principio: mínimo privilegio. Todo lo que no se permite aquí abajo está
 // denegado, y cada escritura valida las claves y los tipos exactos que
 // escribe el `toMap` de los modelos de la app.
+//
+// Roles: quien tiene un documento `admins/{uid}` es admin (edita el evento,
+// gestiona participantes y aportaciones). Los demás usuarios con sesión solo
+// gestionan lo suyo: su asistencia y las aportaciones que ellos llevan.
+// Ese documento se crea a mano (consola de Firebase o emulador), nunca desde
+// la app: ver docs/como-correr.md ("Cómo nombrar admin").
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -12,9 +18,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Admin: sesión iniciada y documento `admins/{uid}` existente.
+    function esAdmin() {
+      return haySesion()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     // Por defecto: todo denegado (cualquier ruta que no se liste abajo).
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Roles. Cada quien puede leer solo su propio documento (para saber si
+    // es admin); nadie escribe desde la app.
+    match /admins/{adminUid} {
+      allow read: if haySesion() && request.auth.uid == adminUid;
+      allow write: if false;
     }
 
     // Evento de la posada: un único documento `evento/actual`.
@@ -32,13 +51,14 @@ service cloud.firestore {
 
       // Leer: cualquier usuario con sesión.
       allow read: if haySesion();
-      // Crear/actualizar: con sesión, solo el documento `actual` y datos válidos.
-      allow create, update: if haySesion() && eventoId == 'actual' && eventoValido();
+      // Crear/actualizar: solo el admin, solo el documento `actual`, datos válidos.
+      allow create, update: if esAdmin() && eventoId == 'actual' && eventoValido();
       // Borrar: nunca.
       allow delete: if false;
     }
 
-    // Participantes de la posada.
+    // Participantes de la posada: una cuenta registrada = un documento cuyo
+    // id es su uid (`participantes/{uid}`). No se guarda el correo.
     match /participantes/{participanteId} {
       // Datos válidos (Participante.toMap).
       function participanteValido() {
@@ -49,12 +69,22 @@ service cloud.firestore {
           && d.asistencia in ['si', 'no', 'tal_vez'];
       }
 
+      // Solo cambia la asistencia (el nombre no se toca).
+      function soloAsistencia() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['asistencia']);
+      }
+
       // Leer: cualquier usuario con sesión.
       allow read: if haySesion();
-      // Crear/actualizar: con sesión y datos válidos.
-      allow create, update: if haySesion() && participanteValido();
-      // Borrar: cualquier usuario con sesión.
-      allow delete: if haySesion();
+      // Crear: cada quien su propio documento (id = su uid).
+      allow create: if haySesion() && request.auth.uid == participanteId
+        && participanteValido();
+      // Actualizar: solo la asistencia; la propia, o cualquiera si es admin.
+      allow update: if haySesion() && participanteValido() && soloAsistencia()
+        && (request.auth.uid == participanteId || esAdmin());
+      // Borrar (quitar de la lista): solo el admin.
+      allow delete: if esAdmin();
     }
 
     // Aportaciones (artículos que alguien llevará).
@@ -70,12 +100,32 @@ service cloud.firestore {
           && d.lista is bool;
       }
 
+      // Cambio de un participante (no admin): solo `responsable_id` y `lista`.
+      // - El nuevo responsable es nadie o él mismo.
+      // - El anterior era nadie o él mismo (no se le quita a otra persona).
+      // - Si cambia `lista`, la aportación debe quedar a cargo de él mismo.
+      function cambioPropio() {
+        let nuevo = request.resource.data;
+        let viejo = resource.data;
+        return nuevo.diff(viejo).affectedKeys().hasOnly(['responsable_id', 'lista'])
+          && (nuevo.responsable_id == null || nuevo.responsable_id == request.auth.uid)
+          && (viejo.responsable_id == null || viejo.responsable_id == request.auth.uid)
+          && (nuevo.lista == viejo.lista || nuevo.responsable_id == request.auth.uid);
+      }
+
       // Leer: cualquier usuario con sesión.
       allow read: if haySesion();
-      // Crear/actualizar: con sesión y datos válidos.
-      allow create, update: if haySesion() && aportacionValida();
-      // Borrar: cualquier usuario con sesión.
-      allow delete: if haySesion();
+      // Crear: con sesión y datos válidos; libre o a su nombre, y sin marcar
+      // como lista (salvo el admin).
+      allow create: if haySesion() && aportacionValida()
+        && (request.resource.data.responsable_id == null
+            || request.resource.data.responsable_id == request.auth.uid)
+        && (request.resource.data.lista == false || esAdmin());
+      // Actualizar: el admin cualquier cambio válido; los demás, `cambioPropio`.
+      allow update: if haySesion() && aportacionValida()
+        && (esAdmin() || cambioPropio());
+      // Borrar: solo el admin.
+      allow delete: if esAdmin();
     }
   }
 }
