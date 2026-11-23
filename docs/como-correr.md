@@ -73,7 +73,7 @@ Cómo encontrar la IP de tu computadora:
 - **Windows:** `ipconfig` y busca "Dirección IPv4"
 - **Linux:** `hostname -I`
 
-**Primer paso en la app:** los emuladores empiezan vacíos. Crea una cuenta en la pantalla de registro. Los datos se borran al detener el emulador.
+**Primer paso en la app:** los emuladores empiezan vacíos. Crea una cuenta en la pantalla de registro (cada cuenta aparece sola en **Participantes**). Los datos se borran al detener el emulador salvo que lo inicies con `--import`/`--export-on-exit`.
 
 ## 5. Modo clase (los alumnos se conectan a tu máquina)
 
@@ -108,7 +108,24 @@ Teclas: `Enter` o `r` recompila, `q` sale (detiene el servidor y, si los inició
 
 **Advertencia:** cualquiera en esa red puede leer y escribir en los emuladores. Usa solo datos de prueba.
 
-## 6. Pruebas
+## 6. Roles: participantes y admin
+
+- **Participantes = cuentas registradas.** Al registrarse o iniciar sesión, la app crea el documento `participantes/<uid>` (solo `nombre` y `asistencia`, sin correo) si no existe. No hay invitados sin cuenta ni botón de agregar. Cada quien cambia **su propia** asistencia.
+- **Admin:** quien tiene un documento `admins/<uid>`. Puede editar el evento, cambiar la asistencia de cualquiera, quitar participantes y gestionar (asignar, marcar lista, eliminar) todas las aportaciones. Los demás solo asignarse o soltar aportaciones suyas/libres y marcar como lista las que llevan ellos.
+- **Quitar a alguien** de la lista borra su documento `participantes/<uid>`; si esa persona vuelve a iniciar sesión, reaparece (sigue teniendo cuenta).
+
+### Cómo nombrar admin
+
+1. La persona **se registra primero** en la app (así existe su cuenta y su uid).
+2. Busca su **uid** en la pestaña **Authentication** (consola de Firebase o <http://localhost:4000/auth> en el emulador): columna "User UID".
+3. Crea un documento con ese uid como **ID**, en la colección `admins`. No necesita campos; sirve `{}` o `{"nota": "organizador"}`:
+   - **Nube:** consola de Firebase → Firestore Database → *Iniciar colección* (o agregar documento) → colección `admins`, ID de documento = el uid.
+   - **Emulador:** <http://localhost:4000/firestore> → *Start collection* → `admins`, Document ID = el uid.
+4. La persona cierra sesión y vuelve a entrar para que la app lea su rol.
+
+Las reglas impiden que la app cree o edite `admins`: solo se hace a mano. Cada persona solo puede leer su propio documento de `admins`. En el emulador los datos se pierden al detenerlo, así que hay que repetirlo (o usar `--export-on-exit`).
+
+## 7. Pruebas
 
 ```bash
 flutter analyze
@@ -117,7 +134,9 @@ flutter test
 firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/rest_rules_test.js"
 ```
 
-## 7. Problemas comunes
+La prueba de reglas usa `FIRESTORE_EMULATOR_HOST` (lo define `emulators:exec`); sin esa variable apunta a `127.0.0.1:8080`.
+
+## 8. Problemas comunes
 
 | Síntoma | Solución |
 |---|---|
@@ -127,3 +146,4 @@ firebase emulators:exec --only firestore --project demo-posada "node test/firest
 | `flutter pub get` falla por versión | Actualiza Flutter (`flutter upgrade`); necesitas 3.47+. |
 | En Android: "cleartext not permitted" o no conecta | Solo funciona en builds **debug** (`flutter run` lo es). Si usas teléfono físico, revisa `EMULADOR_HOST` y que estén en la misma Wi-Fi. |
 | La app muestra error de permisos | Inicia sesión (las reglas exigen sesión). En la nube, avisa al profesor si las reglas no están desplegadas. |
+| No aparecen los botones de admin | Tu uid no tiene documento en `admins`; mira "Cómo nombrar admin" y vuelve a iniciar sesión. |

@@ -149,4 +149,46 @@ void main() {
       expect(vm.usuario, isNull);
     });
   });
+
+  group('registro y emisiones de sesión', () {
+    test('retiene la sesión sin nombre hasta terminar de registrar', () async {
+      final repo = _RepoRegistroLento();
+      final vm = AuthViewModel(repo);
+      await esperar();
+      final vistos = <String?>[];
+      vm.addListener(() => vistos.add(vm.usuario?.nombre));
+
+      final ok = await vm.registrar(
+        nombre: 'Ana',
+        correo: 'ana@posada.mx',
+        contrasena: 'secreta1',
+      );
+      await esperar();
+
+      expect(ok, isTrue);
+      expect(vm.usuario?.nombre, 'Ana');
+      // Nunca se llegó a mostrar la sesión con el nombre vacío.
+      expect(vistos.contains(''), isFalse);
+      vm.dispose();
+    });
+  });
+}
+
+/// Emite primero al usuario sin nombre (como Firebase al crear la cuenta) y
+/// luego lo devuelve ya con nombre.
+class _RepoRegistroLento extends FakeAuthRepository {
+  @override
+  Future<Usuario?> registrar({
+    required String nombre,
+    required String correo,
+    required String contrasena,
+  }) async {
+    _emitirSinNombre(Usuario(id: 'u-9', correo: correo, nombre: ''));
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    final u = Usuario(id: 'u-9', correo: correo, nombre: nombre);
+    _emitirSinNombre(u);
+    return u;
+  }
+
+  void _emitirSinNombre(Usuario u) => emitirParaPruebas(u);
 }

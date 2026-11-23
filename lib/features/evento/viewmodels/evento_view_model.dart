@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/validacion/limites.dart';
+import '../../auth/viewmodels/sesion_view_model.dart';
 import '../models/evento.dart';
 import '../repositories/evento_repository.dart';
 
 /// Estado de la pantalla del evento (patrón Observer).
 class EventoViewModel extends ChangeNotifier {
-  EventoViewModel(this._repository) {
+  EventoViewModel(this._repository, {required this.sesion}) {
     _suscripcion = _repository.evento.listen(
       (evento) {
         _evento = evento;
@@ -25,6 +26,7 @@ class EventoViewModel extends ChangeNotifier {
   }
 
   final EventoRepository _repository;
+  final SesionViewModel sesion;
   late final StreamSubscription<Evento?> _suscripcion;
 
   Evento? _evento;
@@ -35,6 +37,9 @@ class EventoViewModel extends ChangeNotifier {
   bool get cargando => _cargando;
   String? get error => _error;
 
+  /// Solo el admin crea o edita el evento.
+  bool get puedeEditar => sesion.esAdmin;
+
   /// Guarda el evento. Devuelve `false` y deja [error] si no es válido.
   Future<bool> guardar({
     required String nombre,
@@ -42,6 +47,11 @@ class EventoViewModel extends ChangeNotifier {
     String lugar = '',
     String notas = '',
   }) async {
+    if (!puedeEditar) {
+      _error = 'Solo el organizador puede editar el evento.';
+      notifyListeners();
+      return false;
+    }
     final nombreLimpio = nombre.trim();
     if (nombreLimpio.isEmpty) {
       _error = 'El nombre del evento no puede estar vacío.';

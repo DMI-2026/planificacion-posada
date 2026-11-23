@@ -20,12 +20,13 @@ class EventoView extends StatelessWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([
         vm,
+        scope.sesion,
         scope.participantes,
         scope.aportaciones,
       ]),
       builder: (context, _) {
         return Scaffold(
-          floatingActionButton: vm.cargando
+          floatingActionButton: vm.cargando || !vm.puedeEditar
               ? null
               : FloatingActionButton.extended(
                   onPressed: () => showDialog<void>(
@@ -53,11 +54,13 @@ class EventoView extends StatelessWidget {
       children: [
         if (vm.error != null) BannerError(mensaje: vm.error!),
         if (evento == null)
-          const SizedBox(
+          SizedBox(
             height: 240,
             child: EstadoVacio(
               icono: Icons.celebration_outlined,
-              mensaje: 'Todavía no hay evento. Crea la posada de la clase.',
+              mensaje: vm.puedeEditar
+                  ? 'Todavía no hay evento. Crea la posada de la clase.'
+                  : 'El organizador aún no ha definido el evento',
             ),
           )
         else

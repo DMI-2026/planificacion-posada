@@ -27,8 +27,10 @@ class FirestoreParticipanteRepository implements ParticipanteRepository {
       });
 
   @override
-  Future<void> agregar(String nombre) async {
-    await _coleccion.add(Participante(id: '', nombre: nombre).toMap());
+  Future<void> asegurar(String uid, String nombre) async {
+    final doc = _coleccion.doc(uid);
+    if ((await doc.get()).exists) return;
+    await doc.set(Participante(id: uid, nombre: nombre).toMap());
   }
 
   @override

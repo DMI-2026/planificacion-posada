@@ -15,7 +15,7 @@ class AportacionesView extends StatelessWidget {
     final scope = PosadaScope.of(context);
     final vm = scope.aportaciones;
     return ListenableBuilder(
-      listenable: Listenable.merge([vm, scope.participantes]),
+      listenable: Listenable.merge([vm, scope.participantes, scope.sesion]),
       builder: (context, _) {
         return Scaffold(
           floatingActionButton: FloatingActionButton.extended(
@@ -69,7 +69,9 @@ class AportacionesView extends StatelessWidget {
                     children: [
                       Checkbox(
                         value: a.lista,
-                        onChanged: (v) => vm.marcarLista(a.id, v ?? false),
+                        onChanged: vm.puedeMarcarLista(a)
+                            ? (v) => vm.marcarLista(a.id, v ?? false)
+                            : null,
                       ),
                       Expanded(
                         child: Text(
@@ -77,15 +79,16 @@ class AportacionesView extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Eliminar ${a.articulo}',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
-                          if (await confirmarEliminar(context, a.articulo)) {
-                            await vm.eliminar(a.id);
-                          }
-                        },
-                      ),
+                      if (vm.puedeEliminar)
+                        IconButton(
+                          tooltip: 'Eliminar ${a.articulo}',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            if (await confirmarEliminar(context, a.articulo)) {
+                              await vm.eliminar(a.id);
+                            }
+                          },
+                        ),
                     ],
                   ),
                   Padding(
@@ -100,13 +103,18 @@ class AportacionesView extends StatelessWidget {
                           value: null,
                           child: Text('Sin asignar'),
                         ),
-                        for (final p in participantes)
+                        for (final p in vm.opcionesResponsable(
+                          a,
+                          participantes,
+                        ))
                           DropdownMenuItem<String?>(
                             value: p.id,
                             child: Text(p.nombre),
                           ),
                       ],
-                      onChanged: (id) => vm.asignar(a.id, id),
+                      onChanged: vm.puedeAsignar(a)
+                          ? (id) => vm.asignar(a.id, id)
+                          : null,
                     ),
                   ),
                 ],

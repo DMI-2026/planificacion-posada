@@ -23,6 +23,13 @@ class AuthViewModel extends ChangeNotifier {
   String _error = '';
   Usuario? _usuario;
 
+  // Mientras se registra, las emisiones de sesión se retienen: Firebase emite
+  // al crear la cuenta, antes de guardar el nombre, y la app crearía el
+  // participante con un nombre incompleto.
+  bool _registrando = false;
+  bool _hayRetenida = false;
+  Usuario? _retenida;
+
   bool get iniciando => _iniciando;
   bool get cargando => _cargando;
 
@@ -45,6 +52,15 @@ class AuthViewModel extends ChangeNotifier {
       nombre.trim().isNotEmpty ? null : 'Escribe tu nombre.';
 
   void _alCambiarSesion(Usuario? usuario) {
+    if (_registrando) {
+      _retenida = usuario;
+      _hayRetenida = true;
+      return;
+    }
+    _aplicarSesion(usuario);
+  }
+
+  void _aplicarSesion(Usuario? usuario) {
     _usuario = usuario;
     _iniciando = false;
     notifyListeners();
@@ -97,18 +113,33 @@ class AuthViewModel extends ChangeNotifier {
     required String nombre,
     required String correo,
     required String contrasena,
-  }) => _ejecutar(
-    [
-      validarNombre(nombre),
-      validarCorreo(correo),
-      validarContrasena(contrasena),
-    ],
-    () => _repository.registrar(
-      nombre: nombre.trim(),
-      correo: correo.trim(),
-      contrasena: contrasena,
-    ),
-  );
+  }) async {
+    _registrando = true;
+    Usuario? registrado;
+    try {
+      return await _ejecutar(
+        [
+          validarNombre(nombre),
+          validarCorreo(correo),
+          validarContrasena(contrasena),
+        ],
+        () async => registrado = await _repository.registrar(
+          nombre: nombre.trim(),
+          correo: correo.trim(),
+          contrasena: contrasena,
+        ),
+      );
+    } finally {
+      _registrando = false;
+      if (registrado != null) {
+        _hayRetenida = false;
+        _aplicarSesion(registrado);
+      } else if (_hayRetenida) {
+        _hayRetenida = false;
+        _aplicarSesion(_retenida);
+      }
+    }
+  }
 
   /// Al cambiar entre login y registro, el error de una no se queda en la otra.
   void limpiarError() {

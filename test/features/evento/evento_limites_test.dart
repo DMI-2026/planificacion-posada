@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:planificacion_posada/features/evento/repositories/fake_evento_repository.dart';
 import 'package:planificacion_posada/features/evento/viewmodels/evento_view_model.dart';
 
+import '../../helpers/sesion_prueba.dart';
+
 void main() {
   final fecha = DateTime(2026, 12, 18, 19);
 
@@ -10,7 +12,10 @@ void main() {
     String lugar = '',
     String notas = '',
   }) async {
-    final vm = EventoViewModel(FakeEventoRepository());
+    final vm = EventoViewModel(
+      FakeEventoRepository(),
+      sesion: sesionPrueba(admin: true),
+    );
     await Future<void>.delayed(Duration.zero);
     final ok = await vm.guardar(
       nombre: nombre,
