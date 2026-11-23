@@ -8,7 +8,7 @@ La app web se compila con el `Dockerfile` del repo (Flutter + nginx) y habla con
 - ~3 GB de RAM libres durante la compilación de Flutter.
 - Un dominio con registro DNS A/AAAA apuntando a la IP del servidor.
 
-## Pasos en Dokploy
+## Opción A: servicio Application
 
 1. **Create Project** → **Create Service** → **Application**.
 2. **Provider:**
@@ -23,6 +23,25 @@ La app web se compila con el `Dockerfile` del repo (Flutter + nginx) y habla con
    - HTTPS: activado, certificado **Let's Encrypt**.
 5. **Deploy.** El primer despliegue tarda varios minutos (descarga el SDK de Flutter); los siguientes reutilizan capas en caché.
 6. **Autodeploy:** activa Autodeploy (o copia el webhook en GitHub → Settings → Webhooks) para desplegar con cada push a `main`.
+
+## Opción B: servicio Compose
+
+Usa el `docker-compose.yml` de la raíz del repo (un servicio `web`, sin puertos publicados en el host).
+
+1. **Create Project** → **Create Service** → **Compose**.
+2. **Provider:** GitHub, repositorio `carsimax/planificacion-posada`, branch `main`.
+3. **Compose Path:** `./docker-compose.yml`
+4. **Domains** → **Add Domain**:
+   - Service Name: `web`
+   - Host: tu dominio (p. ej. `posada.ejemplo.com`)
+   - Path: `/`
+   - Container Port: `80`
+   - HTTPS: activado, certificado **Let's Encrypt**.
+5. **Deploy.**
+
+Notas:
+
+- **Environment** puede quedar vacío. Opcionalmente define `FLUTTER_VERSION=<versión>` en el Environment del Compose: alimenta el build arg del mismo nombre.
 
 ## Después del primer despliegue
 
@@ -43,4 +62,5 @@ La app web se compila con el `Dockerfile` del repo (Flutter + nginx) y habla con
 |---|---|
 | El build termina con `Killed` / OOM | Falta RAM: libera memoria, agrega swap o compila fuera (GitHub Actions). |
 | 404 al abrir una ruta directa | No debería pasar: `nginx.conf` ya redirige a `index.html`. Revisa que el puerto del dominio sea 80. |
+| `Compose file not found` | Falta `docker-compose.yml` en la rama o la ruta no es `./docker-compose.yml`. |
 | No aparecen los cambios | Recarga forzada (Ctrl+Shift+R). `index.html` y `main.dart.js` se sirven sin caché; los assets duran 7 días. |

@@ -1,0 +1,18 @@
+# Despliegue como servicio "Compose" en Dokploy.
+#
+# En Dokploy -> Domains, agrega el dominio con:
+#   Service Name: web
+#   Container Port: 80
+# Dokploy (Traefik) enruta al contenedor; por eso NO se publican puertos
+# del host (publicar el 80 chocaría con Traefik).
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Versión de Flutter; se puede sobrescribir en Environment de Dokploy.
+        FLUTTER_VERSION: "${FLUTTER_VERSION:-3.47.7}"
+    restart: unless-stopped
+    expose:
+      - "80"
