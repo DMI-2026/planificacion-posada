@@ -1,6 +1,16 @@
 # Planificación Posada
 
-App para organizar la posada de la clase: evento (nombre, fecha, lugar, notas), participantes con su asistencia y aportaciones (quién lleva qué). Proyecto de la clase DMI-2026: cada equipo agrega una feature.
+App para organizar la posada de Navidad de la clase. Proyecto de la clase DMI-2026.
+
+## Módulos
+
+1. **Inicio:** cuenta regresiva y datos de la posada.
+2. **Participantes:** quién se registró y si asiste (sí / no / tal vez).
+3. **Comida (votación):** se proponen platillos y cada quien vota por uno; el admin cierra la votación.
+4. **Itinerario:** actividades de la noche en orden, con hora, duración y responsable.
+5. **Aportaciones:** material (quién lleva qué) y económicas (cuotas, con meta de recaudación).
+6. **Árbol virtual:** cada quien crea esferas y regalos y los cuelga; todos los ven en tiempo real.
+7. **Intercambio de regalos:** inscripción con lista de deseos, sorteo y revelación de a quién le regalas.
 
 - **Plataformas:** Android y Chrome (web).
 - **Stack:** Flutter, Firebase Auth + Firestore (proyecto `posada-dmi-2026`), estado con `ChangeNotifier` (MVVM).
@@ -30,7 +40,7 @@ Guía completa (Android, teléfono físico, problemas comunes): [docs/como-corre
 ```bash
 flutter analyze
 flutter test
-# Reglas de Firestore (requiere firebase-tools, Node 20+ y Java 21+)
+# Reglas de Firestore (requiere firebase-tools, Node 20+ y Java 21+): un archivo por módulo
 firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/rest_rules_test.js"
 ```
 
@@ -46,7 +56,7 @@ lib/
     views/              # pantallas y widgets
 test/features/<feature>/  # pruebas de cada feature
 test/firestore_rules/     # pruebas de firestore.rules
-firestore.rules           # reglas de seguridad (una por colección)
+firestore.rules           # reglas de seguridad (única fuente; un bloque por colección)
 ```
 
-Features actuales: `auth`, `evento`, `participantes`, `aportaciones`. Para colaborar lee [CONTRIBUTING.md](CONTRIBUTING.md).
+Features actuales: `auth`, `evento` (Inicio), `participantes`, `votacion`, `itinerario`, `aportaciones`, `arbol`, `intercambio`. Para colaborar lee [CONTRIBUTING.md](CONTRIBUTING.md).
