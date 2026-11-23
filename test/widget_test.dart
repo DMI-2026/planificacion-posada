@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:planificacion_posada/features/aportaciones/models/aportacion.dart';
 import 'package:planificacion_posada/features/aportaciones/repositories/fake_aportacion_repository.dart';
 import 'package:planificacion_posada/features/auth/models/usuario.dart';
+import 'package:planificacion_posada/features/auth/repositories/fake_admin_repository.dart';
 import 'package:planificacion_posada/features/auth/repositories/fake_auth_repository.dart';
 import 'package:planificacion_posada/features/evento/repositories/fake_evento_repository.dart';
+import 'package:planificacion_posada/features/participantes/models/participante.dart';
 import 'package:planificacion_posada/features/participantes/repositories/fake_participante_repository.dart';
 import 'package:planificacion_posada/main.dart';
 
@@ -12,6 +14,8 @@ Future<void> abrir(
   WidgetTester tester, {
   FakeAportacionRepository? aportaciones,
   FakeAuthRepository? auth,
+  FakeParticipanteRepository? participantes,
+  bool admin = false,
 }) async {
   if (tester.view.physicalSize.width == 800) {
     tester.view.physicalSize = const Size(400, 800);
@@ -29,8 +33,9 @@ Future<void> abrir(
               nombre: 'Ana',
             ),
           ),
+      adminRepository: FakeAdminRepository(admins: admin ? {'u-1'} : {}),
       eventoRepository: FakeEventoRepository(),
-      participanteRepository: FakeParticipanteRepository(),
+      participanteRepository: participantes ?? FakeParticipanteRepository(),
       aportacionRepository: aportaciones ?? FakeAportacionRepository(),
     ),
   );
@@ -47,47 +52,123 @@ void main() {
     expect(find.text('Inicio'), findsOneWidget);
     expect(find.text('Participantes'), findsOneWidget);
     expect(find.text('Aportaciones'), findsOneWidget);
-    expect(find.textContaining('Todavía no hay evento'), findsOneWidget);
+    expect(
+      find.text('El organizador aún no ha definido el evento'),
+      findsOneWidget,
+    );
     expect(find.text('Asistentes confirmados: 0'), findsOneWidget);
   });
 
-  testWidgets('agregar participante lo lista y actualiza contadores', (
+  testWidgets(
+    'participantes: aparece quien inició sesión, sin botón de agregar',
+    (tester) async {
+      await abrir(tester);
+      await tester.tap(find.text('Participantes'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Agregar participante'), findsNothing);
+      expect(find.text('Ana (Tú)'), findsOneWidget);
+      expect(find.text('Tal vez: 1'), findsOneWidget);
+      expect(find.text('Eres admin'), findsNothing);
+
+      await tester.tap(find.text('Sí'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sí: 1'), findsOneWidget);
+      expect(find.text('Tal vez: 0'), findsOneWidget);
+    },
+  );
+
+  testWidgets('no admin: solo puede cambiar su propia asistencia y no quita', (
     tester,
   ) async {
-    await abrir(tester);
+    await abrir(
+      tester,
+      participantes: FakeParticipanteRepository(
+        inicial: const [Participante(id: 'u-2', nombre: 'Beto')],
+      ),
+    );
     await tester.tap(find.text('Participantes'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Aún no hay participantes'), findsOneWidget);
 
-    await tester.tap(find.text('Agregar participante'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Ana');
-    await tester.tap(find.text('Guardar'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ana'), findsOneWidget);
-    expect(find.text('Tal vez: 1'), findsOneWidget);
-    expect(find.text('Sí: 0'), findsOneWidget);
-
-    await tester.tap(find.text('Sí'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sí: 1'), findsOneWidget);
-    expect(find.text('Tal vez: 0'), findsOneWidget);
+    SegmentedButton<Asistencia> selector(String id) => tester.widget(
+      find.descendant(
+        of: find.byKey(ValueKey('participante-$id')),
+        matching: find.byType(SegmentedButton<Asistencia>),
+      ),
+    );
+    expect(selector('u-1').onSelectionChanged, isNotNull);
+    expect(selector('u-2').onSelectionChanged, isNull);
+    expect(find.byIcon(Icons.person_remove_outlined), findsNothing);
   });
 
-  testWidgets('nombre vacío muestra el mensaje del viewmodel', (tester) async {
-    await abrir(tester);
+  testWidgets('admin: edita a todos, quita participantes y ve "Eres admin"', (
+    tester,
+  ) async {
+    await abrir(
+      tester,
+      admin: true,
+      participantes: FakeParticipanteRepository(
+        inicial: const [Participante(id: 'u-2', nombre: 'Beto')],
+      ),
+    );
     await tester.tap(find.text('Participantes'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Agregar participante'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Guardar'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('El nombre del participante no puede estar vacío.'),
-      findsWidgets,
+
+    expect(find.text('Eres admin'), findsOneWidget);
+    SegmentedButton<Asistencia> selector(String id) => tester.widget(
+      find.descendant(
+        of: find.byKey(ValueKey('participante-$id')),
+        matching: find.byType(SegmentedButton<Asistencia>),
+      ),
     );
-    expect(find.text('Nuevo participante'), findsOneWidget);
+    expect(selector('u-2').onSelectionChanged, isNotNull);
+    expect(find.byIcon(Icons.person_remove_outlined), findsNWidgets(2));
+  });
+
+  testWidgets('no admin: Inicio es de solo lectura', (tester) async {
+    await abrir(tester);
+    expect(find.text('Crear evento'), findsNothing);
+    expect(find.text('Editar evento'), findsNothing);
+    expect(
+      find.text('El organizador aún no ha definido el evento'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('admin: puede crear el evento desde Inicio', (tester) async {
+    await abrir(tester, admin: true);
+    expect(find.text('Crear evento'), findsOneWidget);
+    expect(find.textContaining('Todavía no hay evento'), findsOneWidget);
+  });
+
+  testWidgets('no admin: aportaciones sin eliminar y lista solo en las suyas', (
+    tester,
+  ) async {
+    await abrir(
+      tester,
+      aportaciones: FakeAportacionRepository(
+        inicial: const [
+          Aportacion(id: 'a-1', articulo: 'Ponche', cantidad: 2),
+          Aportacion(
+            id: 'a-2',
+            articulo: 'Piñata',
+            cantidad: 1,
+            responsableId: 'u-1',
+          ),
+        ],
+      ),
+    );
+    await tester.tap(find.text('Aportaciones'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+    Checkbox casilla(String id) => tester.widget(
+      find.descendant(
+        of: find.byKey(ValueKey('aportacion-$id')),
+        matching: find.byType(Checkbox),
+      ),
+    );
+    expect(casilla('a-1').onChanged, isNull);
+    expect(casilla('a-2').onChanged, isNotNull);
   });
 
   testWidgets('marcar una aportación como lista actualiza contadores', (
@@ -96,7 +177,14 @@ void main() {
     await abrir(
       tester,
       aportaciones: FakeAportacionRepository(
-        inicial: const [Aportacion(id: 'a-1', articulo: 'Ponche', cantidad: 2)],
+        inicial: const [
+          Aportacion(
+            id: 'a-1',
+            articulo: 'Ponche',
+            cantidad: 2,
+            responsableId: 'u-1',
+          ),
+        ],
       ),
     );
     await tester.tap(find.text('Aportaciones'));

@@ -3,6 +3,8 @@ import 'package:planificacion_posada/features/evento/models/evento.dart';
 import 'package:planificacion_posada/features/evento/repositories/fake_evento_repository.dart';
 import 'package:planificacion_posada/features/evento/viewmodels/evento_view_model.dart';
 
+import '../../helpers/sesion_prueba.dart';
+
 void main() {
   final fecha = DateTime(2026, 12, 18, 19);
 
@@ -38,7 +40,7 @@ void main() {
   group('EventoViewModel', () {
     test('empieza cargando y luego expone el evento', () async {
       final repo = FakeEventoRepository();
-      final vm = EventoViewModel(repo);
+      final vm = EventoViewModel(repo, sesion: sesionPrueba(admin: true));
       expect(vm.cargando, isTrue);
       await Future<void>.delayed(Duration.zero);
       expect(vm.cargando, isFalse);
@@ -47,8 +49,32 @@ void main() {
       vm.dispose();
     });
 
+    test('no admin: no puede guardar y no se escribe nada', () async {
+      final repo = FakeEventoRepository();
+      final vm = EventoViewModel(repo, sesion: sesionPrueba());
+      await Future<void>.delayed(Duration.zero);
+      expect(vm.puedeEditar, isFalse);
+      expect(await vm.guardar(nombre: 'Posada', fecha: fecha), isFalse);
+      await Future<void>.delayed(Duration.zero);
+      expect(vm.error, 'Solo el organizador puede editar el evento.');
+      expect(vm.evento, isNull);
+      vm.dispose();
+    });
+
+    test('admin: puedeEditar es true', () async {
+      final vm = EventoViewModel(
+        FakeEventoRepository(),
+        sesion: sesionPrueba(admin: true),
+      );
+      expect(vm.puedeEditar, isTrue);
+      vm.dispose();
+    });
+
     test('guardar actualiza el evento y notifica', () async {
-      final vm = EventoViewModel(FakeEventoRepository());
+      final vm = EventoViewModel(
+        FakeEventoRepository(),
+        sesion: sesionPrueba(admin: true),
+      );
       await Future<void>.delayed(Duration.zero);
       final ok = await vm.guardar(
         nombre: '  Posada  ',
@@ -65,7 +91,7 @@ void main() {
 
     test('rechaza un nombre vacío sin guardar', () async {
       final repo = FakeEventoRepository();
-      final vm = EventoViewModel(repo);
+      final vm = EventoViewModel(repo, sesion: sesionPrueba(admin: true));
       await Future<void>.delayed(Duration.zero);
       final ok = await vm.guardar(
         nombre: '   ',
@@ -82,7 +108,7 @@ void main() {
 
     test('un fallo del repositorio deja un error', () async {
       final repo = FakeEventoRepository()..falla = true;
-      final vm = EventoViewModel(repo);
+      final vm = EventoViewModel(repo, sesion: sesionPrueba(admin: true));
       await Future<void>.delayed(Duration.zero);
       final ok = await vm.guardar(
         nombre: 'A',
@@ -97,7 +123,7 @@ void main() {
 
     test('un error en el stream deja error y quita cargando', () async {
       final repo = FakeEventoRepository();
-      final vm = EventoViewModel(repo);
+      final vm = EventoViewModel(repo, sesion: sesionPrueba(admin: true));
       repo.emitirError(Exception('x'));
       await Future<void>.delayed(Duration.zero);
       expect(vm.cargando, isFalse);

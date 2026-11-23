@@ -6,11 +6,9 @@ import 'participante_repository.dart';
 /// Repositorio en memoria para pruebas y para las vistas sin nube.
 class FakeParticipanteRepository implements ParticipanteRepository {
   FakeParticipanteRepository({List<Participante> inicial = const []})
-    : _lista = List.of(inicial),
-      _siguienteId = inicial.length + 1;
+    : _lista = List.of(inicial);
 
   final List<Participante> _lista;
-  int _siguienteId;
   final _controlador = StreamController<List<Participante>>.broadcast();
 
   /// Número de suscriptores activos (útil para probar `dispose`).
@@ -34,8 +32,9 @@ class FakeParticipanteRepository implements ParticipanteRepository {
   void emitirError(Object error) => _controlador.addError(error);
 
   @override
-  Future<void> agregar(String nombre) async {
-    _lista.add(Participante(id: 'p-${_siguienteId++}', nombre: nombre));
+  Future<void> asegurar(String uid, String nombre) async {
+    if (_lista.any((p) => p.id == uid)) return;
+    _lista.add(Participante(id: uid, nombre: nombre));
     _emitir();
   }
 

@@ -30,6 +30,9 @@ class FakeAuthRepository implements AuthRepository {
     yield* _cambios.stream;
   }
 
+  /// Fuerza una emisión de sesión (para simular el orden de eventos de Firebase).
+  void emitirParaPruebas(Usuario? usuario) => _emitir(usuario);
+
   void _emitir(Usuario? usuario) {
     _actual = usuario;
     _cambios.add(usuario);

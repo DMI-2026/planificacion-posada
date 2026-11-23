@@ -9,7 +9,9 @@ import 'core/navegacion/sesion_activa.dart';
 import 'core/theme/app_theme.dart';
 import 'features/aportaciones/repositories/aportacion_repository.dart';
 import 'features/aportaciones/repositories/firestore_aportacion_repository.dart';
+import 'features/auth/repositories/admin_repository.dart';
 import 'features/auth/repositories/auth_repository.dart';
+import 'features/auth/repositories/firestore_admin_repository.dart';
 import 'features/auth/repositories/firebase_auth_repository.dart';
 import 'features/auth/viewmodels/auth_view_model.dart';
 import 'features/auth/views/puerta_sesion_view.dart';
@@ -41,6 +43,7 @@ Future<void> main() async {
   runApp(
     PosadaApp(
       authRepository: FirebaseAuthRepository(),
+      adminRepository: FirestoreAdminRepository(),
       eventoRepository: FirestoreEventoRepository(),
       participanteRepository: FirestoreParticipanteRepository(),
       aportacionRepository: FirestoreAportacionRepository(),
@@ -53,12 +56,14 @@ class PosadaApp extends StatefulWidget {
   const PosadaApp({
     super.key,
     required this.authRepository,
+    required this.adminRepository,
     required this.eventoRepository,
     required this.participanteRepository,
     required this.aportacionRepository,
   });
 
   final AuthRepository authRepository;
+  final AdminRepository adminRepository;
   final EventoRepository eventoRepository;
   final ParticipanteRepository participanteRepository;
   final AportacionRepository aportacionRepository;
@@ -93,6 +98,8 @@ class _PosadaAppState extends State<PosadaApp> {
         // Los viewmodels de datos nacen aquí: solo con sesión iniciada.
         sesionBuilder: (context, usuario) => SesionActiva(
           key: ValueKey(usuario.id),
+          usuario: usuario,
+          adminRepository: widget.adminRepository,
           eventoRepository: widget.eventoRepository,
           participanteRepository: widget.participanteRepository,
           aportacionRepository: widget.aportacionRepository,

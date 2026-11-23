@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/validacion/limites.dart';
+import '../../auth/viewmodels/sesion_view_model.dart';
 import '../../participantes/models/participante.dart';
 import '../models/aportacion.dart';
 import '../repositories/aportacion_repository.dart';
 
 /// Estado de la pantalla de aportaciones (patrón Observer).
 class AportacionesViewModel extends ChangeNotifier {
-  AportacionesViewModel(this._repository) {
+  AportacionesViewModel(this._repository, {required this.sesion}) {
     _suscripcion = _repository.aportaciones.listen(
       (lista) {
         _aportaciones = lista;
@@ -26,6 +27,7 @@ class AportacionesViewModel extends ChangeNotifier {
   }
 
   final AportacionRepository _repository;
+  final SesionViewModel sesion;
   late final StreamSubscription<List<Aportacion>> _suscripcion;
 
   List<Aportacion> _aportaciones = const [];
@@ -65,14 +67,73 @@ class AportacionesViewModel extends ChangeNotifier {
     return _ejecutar(() => _repository.agregar(limpio, cantidad), 'agregar');
   }
 
-  Future<bool> asignar(String id, String? responsableId) =>
-      _ejecutar(() => _repository.asignar(id, responsableId), 'asignar');
+  Aportacion? _buscar(String id) {
+    for (final a in _aportaciones) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
 
-  Future<bool> marcarLista(String id, bool lista) =>
-      _ejecutar(() => _repository.marcarLista(id, lista), 'actualizar');
+  bool _esMia(Aportacion a) => a.responsableId == sesion.uid;
 
-  Future<bool> eliminar(String id) =>
-      _ejecutar(() => _repository.eliminar(id), 'eliminar');
+  /// El admin cambia el responsable de cualquiera; los demás solo de una
+  /// aportación libre o suya (no se le quita a otra persona).
+  bool puedeAsignar(Aportacion a) =>
+      sesion.esAdmin || a.responsableId == null || _esMia(a);
+
+  /// El admin marca cualquiera; los demás solo las que llevan ellos.
+  bool puedeMarcarLista(Aportacion a) => sesion.esAdmin || _esMia(a);
+
+  /// Solo el admin elimina.
+  bool get puedeEliminar => sesion.esAdmin;
+
+  /// Participantes que se ofrecen como responsable de [a]: el admin ve a
+  /// todos; los demás solo a sí mismos (y al responsable actual, que se
+  /// muestra pero no se puede cambiar).
+  List<Participante> opcionesResponsable(
+    Aportacion a,
+    List<Participante> participantes,
+  ) {
+    if (sesion.esAdmin) return participantes;
+    return [
+      for (final p in participantes)
+        if (p.id == sesion.uid || p.id == a.responsableId) p,
+    ];
+  }
+
+  Future<bool> asignar(String id, String? responsableId) {
+    final a = _buscar(id);
+    final permitido =
+        sesion.esAdmin ||
+        (a != null &&
+            puedeAsignar(a) &&
+            (responsableId == null || responsableId == sesion.uid));
+    if (!permitido) {
+      return _rechazar('Solo puedes asignarte aportaciones a ti mismo.');
+    }
+    return _ejecutar(() => _repository.asignar(id, responsableId), 'asignar');
+  }
+
+  Future<bool> marcarLista(String id, bool lista) {
+    final a = _buscar(id);
+    if (!sesion.esAdmin && (a == null || !puedeMarcarLista(a))) {
+      return _rechazar('Solo puedes marcar como lista lo que tú llevas.');
+    }
+    return _ejecutar(() => _repository.marcarLista(id, lista), 'actualizar');
+  }
+
+  Future<bool> eliminar(String id) {
+    if (!puedeEliminar) {
+      return _rechazar('Solo el organizador puede eliminar aportaciones.');
+    }
+    return _ejecutar(() => _repository.eliminar(id), 'eliminar');
+  }
+
+  Future<bool> _rechazar(String mensaje) async {
+    _error = mensaje;
+    notifyListeners();
+    return false;
+  }
 
   /// Nombre del responsable, o `Sin asignar` si no hay o ya no existe.
   String nombreResponsable(
