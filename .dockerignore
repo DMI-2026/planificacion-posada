@@ -1,0 +1,14 @@
+build/
+.dart_tool/
+.git/
+.idea/
+*.iml
+android/
+ios/
+datos-emulador/
+.servir-clase/
+*.log
+.atl/
+coverage/
+node_modules/
+odd/
