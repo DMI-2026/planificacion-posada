@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Solo debug: permite HTTP sin cifrar hacia los emuladores de Firebase
+         (Android 9+ lo bloquea por defecto). -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>
