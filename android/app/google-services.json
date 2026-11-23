@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "387658564854",
+    "project_id": "posada-dmi-2026",
+    "storage_bucket": "posada-dmi-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387658564854:android:2be02e8235d49d7ecf18d7",
+        "android_client_info": {
+          "package_name": "mx.edu.utez.planificacion_posada"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfvYlJJFCDHfzFkTKStzg2AnDv8y1PRRs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
