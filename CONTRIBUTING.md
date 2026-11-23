@@ -25,6 +25,9 @@ Usa `lib/features/participantes/` como ejemplo.
 7. **Reglas:** agrega un bloque `match /<coleccion>/{id}` en `firestore.rules` con validación de forma (campos permitidos, tipos y límites) y casos en `test/firestore_rules/rest_rules_test.js`. Si pones límites de texto, defínelos en `lib/core/validacion/limites.dart` iguales a los de las reglas.
 8. `flutter analyze` y `flutter test` en verde.
 
+## Roles (admin)
+Hay un rol de admin: quien tiene un documento `admins/<uid>` edita el evento y gestiona participantes y aportaciones; los demás solo lo suyo. Para nombrar admin, mira "Cómo nombrar admin" en [docs/como-correr.md](docs/como-correr.md). Si tu feature escribe datos, decide qué puede hacer cada rol en `firestore.rules` (función `esAdmin()`) y pruébalo en `test/firestore_rules/rest_rules_test.js`.
+
 ## Ideas de features (solo sugerencias)
 - Cooperación: cuotas y pagos.
 - Intercambio de regalos: sorteo.
