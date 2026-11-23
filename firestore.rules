@@ -87,24 +87,45 @@ service cloud.firestore {
       allow delete: if esAdmin();
     }
 
-    // Aportaciones (artículos que alguien llevará).
+    // Aportaciones: material (artículos que alguien llevará) o económica
+    // (dinero). Los documentos anteriores sin `tipo` son material. Los límites
+    // coinciden con lib/features/aportaciones/utils/dinero.dart.
     match /aportaciones/{aportacionId} {
-      // Datos válidos (Aportacion.toMap).
-      function aportacionValida() {
+      // Tipo de un mapa de datos (sin `tipo` = material).
+      function tipoAportacion(d) {
+        return d.get('tipo', 'material');
+      }
+
+      // Material válido (Aportacion.toMap): `tipo` es opcional.
+      function materialValido() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['articulo', 'cantidad', 'responsable_id', 'lista'])
+        return d.keys().hasOnly(['tipo', 'articulo', 'cantidad', 'responsable_id', 'lista'])
           && d.keys().hasAll(['articulo', 'cantidad', 'responsable_id', 'lista'])
+          && tipoAportacion(d) == 'material'
           && d.articulo is string && d.articulo.size() >= 1 && d.articulo.size() <= 100
           && d.cantidad is int && d.cantidad >= 1 && d.cantidad <= 999
           && (d.responsable_id == null || d.responsable_id is string)
           && d.lista is bool;
       }
 
-      // Cambio de un participante (no admin): solo `responsable_id` y `lista`.
+      // Económica válida: el responsable es un participante registrado.
+      function economicaValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['tipo', 'responsable_id', 'monto_centavos', 'recibido'])
+          && d.keys().hasAll(['tipo', 'responsable_id', 'monto_centavos', 'recibido'])
+          && d.tipo == 'economica'
+          && d.responsable_id is string
+          && exists(/databases/$(database)/documents/participantes/$(d.responsable_id))
+          && d.monto_centavos is int && d.monto_centavos >= 1 && d.monto_centavos <= 10000000
+          && d.recibido is bool;
+      }
+
+      // Cambio de un participante (no admin) en un material: solo
+      // `responsable_id` y `lista`.
       // - El nuevo responsable es nadie o él mismo.
       // - El anterior era nadie o él mismo (no se le quita a otra persona).
       // - Si cambia `lista`, la aportación debe quedar a cargo de él mismo.
-      function cambioPropio() {
+      function materialCambioPropio() {
         let nuevo = request.resource.data;
         let viejo = resource.data;
         return nuevo.diff(viejo).affectedKeys().hasOnly(['responsable_id', 'lista'])
@@ -113,18 +134,307 @@ service cloud.firestore {
           && (nuevo.lista == viejo.lista || nuevo.responsable_id == request.auth.uid);
       }
 
+      // El responsable de una económica aún no recibida cambia solo el monto.
+      function economicaMontoPropio() {
+        return resource.data.responsable_id == request.auth.uid
+          && resource.data.recibido == false
+          && request.resource.data.recibido == false
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['monto_centavos']);
+      }
+
       // Leer: cualquier usuario con sesión.
       allow read: if haySesion();
-      // Crear: con sesión y datos válidos; libre o a su nombre, y sin marcar
-      // como lista (salvo el admin).
-      allow create: if haySesion() && aportacionValida()
-        && (request.resource.data.responsable_id == null
-            || request.resource.data.responsable_id == request.auth.uid)
-        && (request.resource.data.lista == false || esAdmin());
-      // Actualizar: el admin cualquier cambio válido; los demás, `cambioPropio`.
-      allow update: if haySesion() && aportacionValida()
-        && (esAdmin() || cambioPropio());
-      // Borrar: solo el admin.
+
+      // Crear:
+      // - material: con sesión; libre o a su nombre, y sin marcar como lista
+      //   (salvo el admin).
+      // - económica: la propia sin recibir; el admin, de cualquier participante.
+      allow create: if haySesion() && (
+        (materialValido()
+          && (request.resource.data.responsable_id == null
+              || request.resource.data.responsable_id == request.auth.uid)
+          && (request.resource.data.lista == false || esAdmin()))
+        || (economicaValida()
+          && ((request.resource.data.responsable_id == request.auth.uid
+                && request.resource.data.recibido == false)
+              || esAdmin()))
+      );
+
+      // Actualizar: el tipo nunca cambia.
+      // - material: el admin cualquier cambio válido; los demás,
+      //   `materialCambioPropio`.
+      // - económica: el admin cualquier cambio válido (solo él cambia
+      //   `recibido`); el responsable, el monto mientras no se recibe.
+      allow update: if haySesion()
+        && tipoAportacion(request.resource.data) == tipoAportacion(resource.data)
+        && (
+          (tipoAportacion(resource.data) == 'material'
+            && materialValido() && (esAdmin() || materialCambioPropio()))
+          || (tipoAportacion(resource.data) == 'economica'
+            && economicaValida() && (esAdmin() || economicaMontoPropio()))
+        );
+
+      // Borrar: el admin cualquiera; el responsable, su económica no recibida.
+      allow delete: if esAdmin()
+        || (haySesion()
+            && tipoAportacion(resource.data) == 'economica'
+            && resource.data.responsable_id == request.auth.uid
+            && resource.data.recibido == false);
+    }
+
+    // Configuración de aportaciones: un único documento `config/aportaciones`
+    // con la meta de recaudación en centavos (entero >= 0, o null = sin meta).
+    match /config/aportaciones {
+      // Leer: cualquier usuario con sesión.
+      allow read: if haySesion();
+      // Crear/actualizar: solo el admin, solo el documento `aportaciones`.
+      allow create, update: if esAdmin()
+        && request.resource.data.keys().hasOnly(['meta_centavos'])
+        && request.resource.data.keys().hasAll(['meta_centavos'])
+        && (request.resource.data.meta_centavos == null
+            || (request.resource.data.meta_centavos is int
+                && request.resource.data.meta_centavos >= 0));
+      // Borrar: nunca.
+      allow delete: if false;
+    }
+
+    // ---- Votación de la comida (límites = LimitesVotacion) ----
+
+    // Participante: existe `participantes/{uid}` de quien escribe.
+    function votEsParticipante() {
+      return haySesion()
+        && exists(/databases/$(database)/documents/participantes/$(request.auth.uid));
+    }
+
+    // Votación cerrada: `config/votacion` existe con `cerrada == true`.
+    function votCerrada() {
+      return exists(/databases/$(database)/documents/config/votacion)
+        && get(/databases/$(database)/documents/config/votacion).data.get('cerrada', false) == true;
+    }
+
+    // Platillos propuestos.
+    match /comida_opciones/{opcionId} {
+      // Datos válidos (ComidaOpcion.toMap; `creada` la fija el servidor).
+      function votOpcionValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['nombre', 'descripcion', 'propuesta_por', 'creada'])
+          && d.keys().hasAll(['nombre', 'descripcion', 'propuesta_por', 'creada'])
+          && d.nombre is string && d.nombre.size() >= 1 && d.nombre.size() <= 80
+          && d.descripcion is string && d.descripcion.size() <= 300
+          && d.propuesta_por == request.auth.uid
+          && d.creada == request.time;
+      }
+
+      allow read: if haySesion();
+      // Proponer: solo participantes, a su nombre, con la votación abierta.
+      allow create: if votEsParticipante() && !votCerrada() && votOpcionValida();
+      allow update: if false;
+      // Borrar: el admin siempre; quien lo propuso solo con la votación abierta.
+      allow delete: if haySesion()
+        && (esAdmin() || (resource.data.propuesta_por == request.auth.uid && !votCerrada()));
+    }
+
+    // Un voto por persona: `comida_votos/{uid}`.
+    match /comida_votos/{votanteId} {
+      // Datos válidos (Voto.toMap) y la opción debe existir.
+      function votVotoValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['opcion_id'])
+          && d.opcion_id is string && d.opcion_id.size() >= 1
+          && exists(/databases/$(database)/documents/comida_opciones/$(d.opcion_id));
+      }
+
+      allow read: if haySesion();
+      // Votar o cambiar el voto: solo el propio, participante, votación abierta.
+      allow create, update: if request.auth != null && request.auth.uid == votanteId
+        && votEsParticipante() && !votCerrada() && votVotoValido();
+      // Quitar el voto propio mientras esté abierta.
+      allow delete: if request.auth != null && request.auth.uid == votanteId
+        && !votCerrada();
+    }
+
+    // Estado de la votación: `config/votacion` { cerrada: bool }.
+    match /config/votacion {
+      allow read: if haySesion();
+      allow create, update: if esAdmin()
+        && request.resource.data.keys().hasOnly(['cerrada'])
+        && request.resource.data.keys().hasAll(['cerrada'])
+        && request.resource.data.cerrada is bool;
+      allow delete: if false;
+    }
+
+    // Itinerario de la posada: `itinerario/{id}`. Lee cualquier usuario con
+    // sesión; solo el admin crea, edita y borra (LimitesItinerario).
+    match /itinerario/{actividadId} {
+      function itinerarioValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['titulo', 'descripcion', 'inicio', 'duracion_min', 'responsable_id'])
+          && d.keys().hasAll(['titulo', 'descripcion', 'inicio', 'duracion_min', 'responsable_id'])
+          && d.titulo is string && d.titulo.size() >= 1 && d.titulo.size() <= 80
+          && d.descripcion is string && d.descripcion.size() <= 500
+          && d.inicio is timestamp
+          && d.duracion_min is int && d.duracion_min >= 5 && d.duracion_min <= 600
+          && (d.responsable_id == null
+              || (d.responsable_id is string
+                  && exists(/databases/$(database)/documents/participantes/$(d.responsable_id))));
+      }
+
+      allow read: if haySesion();
+      allow create, update: if esAdmin() && itinerarioValido();
+      allow delete: if esAdmin();
+    }
+
+    // Adornos del árbol virtual (`arbol_adornos/{uid}_{slot}`, slot 0..9): el id
+    // limita a 10 adornos por persona. Paleta = PaletaArbol.colores y límites =
+    // LimitesArbol (lib/features/arbol/models/adorno.dart).
+    match /arbol_adornos/{adornoId} {
+      function arbolPaleta() {
+        return ['#D62839', '#FFC857', '#2EE6C8', '#FF4FD8', '#4F7CFF',
+                '#2FBF71', '#F4F0FF', '#8E5BFF', '#FF8A3D', '#C9CEE8'];
+      }
+
+      // El id es el uid de quien escribe + «_» + un slot de 0 a 9.
+      function arbolIdPropio() {
+        let u = request.auth.uid;
+        return adornoId in [u + '_0', u + '_1', u + '_2', u + '_3', u + '_4',
+                            u + '_5', u + '_6', u + '_7', u + '_8', u + '_9'];
+      }
+
+      // Datos válidos (Adorno.toMap + creado/actualizado): claves exactas por tipo.
+      function arbolAdornoValido() {
+        let d = request.resource.data;
+        let comunes = ['tipo', 'autor_id', 'color', 'mensaje', 'x', 'y',
+                       'creado', 'actualizado'];
+        return d.tipo in ['esfera', 'regalo']
+          && d.autor_id is string
+          && d.color in arbolPaleta()
+          && d.mensaje is string && d.mensaje.size() <= 60
+          && d.x is number && d.x >= 0 && d.x <= 1
+          && d.y is number && d.y >= 0 && d.y <= 1
+          && d.creado is timestamp
+          && d.actualizado is timestamp
+          && ((d.tipo == 'esfera'
+                && d.keys().hasOnly(comunes.concat(['patron']))
+                && d.keys().hasAll(comunes.concat(['patron']))
+                && d.patron in ['liso', 'rayas', 'puntos', 'estrellas'])
+              || (d.tipo == 'regalo'
+                && d.keys().hasOnly(comunes.concat(['color_mono']))
+                && d.keys().hasAll(comunes.concat(['color_mono']))
+                && d.color_mono in arbolPaleta()));
+      }
+
+      // Al editar o mover no cambian el tipo, el autor ni la fecha de creación.
+      function arbolMismoAdorno() {
+        let n = request.resource.data;
+        let v = resource.data;
+        return n.tipo == v.tipo && n.autor_id == v.autor_id && n.creado == v.creado;
+      }
+
+      // Leer: cualquier usuario con sesión.
+      allow read: if haySesion();
+      // Crear: solo quien está registrado como participante, en su propio slot.
+      allow create: if haySesion() && arbolIdPropio()
+        && exists(/databases/$(database)/documents/participantes/$(request.auth.uid))
+        && request.resource.data.autor_id == request.auth.uid
+        && arbolAdornoValido()
+        && request.resource.data.creado == request.time
+        && request.resource.data.actualizado == request.time;
+      // Mover o editar: solo el autor; `actualizado` siempre es la hora del servidor.
+      allow update: if haySesion() && arbolIdPropio()
+        && resource.data.autor_id == request.auth.uid
+        && arbolAdornoValido() && arbolMismoAdorno()
+        && request.resource.data.actualizado == request.time;
+      // Borrar: el autor o el admin.
+      allow delete: if haySesion()
+        && (resource.data.autor_id == request.auth.uid || esAdmin());
+    }
+
+    // Intercambio de regalos (límites = limites_intercambio.dart). El admin puede
+    // leer todas las asignaciones aunque el sorteo no esté revelado (las escribe él).
+    // Configuración: un único documento `config/intercambio`.
+    match /config/intercambio {
+      function intercambioConfigValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['inscripcion_abierta', 'sorteado', 'revelado',
+            'presupuesto_centavos', 'fecha'])
+          && d.keys().hasAll(['inscripcion_abierta', 'sorteado', 'revelado',
+            'presupuesto_centavos', 'fecha'])
+          && d.inscripcion_abierta is bool
+          && d.sorteado is bool
+          && d.revelado is bool
+          && d.presupuesto_centavos is int
+          && d.presupuesto_centavos >= 0 && d.presupuesto_centavos <= 10000000
+          && (d.fecha == null || d.fecha is timestamp);
+      }
+
+      allow read: if haySesion();
+      allow create, update: if esAdmin() && intercambioConfigValida();
+      allow delete: if false;
+    }
+
+    // Inscritos con sus deseos (0..3, de 1 a 80 caracteres). Cada quien
+    // gestiona solo el suyo y solo con la inscripción abierta y sin sorteo.
+    // Inscritos con sus deseos (0..3, de 1 a 80 caracteres). Cada quien gestiona
+    // solo el suyo y solo con la inscripción abierta y sin sorteo.
+    match /intercambio_inscritos/{inscritoId} {
+      // El deseo en la posición i (si existe) es un texto de 1 a 80 caracteres.
+      function intercambioDeseoValido(l, i) {
+        return l.size() <= i
+          || (l[i] is string && l[i].size() >= 1 && l[i].size() <= 80);
+      }
+
+      function intercambioInscritoValido() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['deseos']) && d.keys().hasAll(['deseos'])
+          && d.deseos is list && d.deseos.size() <= 3
+          && intercambioDeseoValido(d.deseos, 0)
+          && intercambioDeseoValido(d.deseos, 1)
+          && intercambioDeseoValido(d.deseos, 2);
+      }
+
+      function intercambioInscripcionAbierta() {
+        let ruta = /databases/$(database)/documents/config/intercambio;
+        return exists(ruta)
+          && get(ruta).data.inscripcion_abierta == true
+          && get(ruta).data.sorteado == false;
+      }
+
+      function intercambioEsParticipante() {
+        return exists(/databases/$(database)/documents/participantes/$(request.auth.uid));
+      }
+
+      allow read: if haySesion();
+      allow create, update: if haySesion() && request.auth.uid == inscritoId
+        && intercambioEsParticipante()
+        && intercambioInscripcionAbierta()
+        && intercambioInscritoValido();
+      allow delete: if haySesion() && request.auth.uid == inscritoId
+        && intercambioInscripcionAbierta();
+    }
+
+    // Asignaciones del sorteo: `intercambio_asignaciones/{quienDa}` con
+    // {destinatario_id}. Solo el admin las escribe (en un batch al sortear).
+    // Las lee su dueño siempre, cualquiera con sesión una vez revelado, y el admin.
+    match /intercambio_asignaciones/{asignacionId} {
+      function intercambioSorteoRevelado() {
+        let ruta = /databases/$(database)/documents/config/intercambio;
+        return exists(ruta) && get(ruta).data.revelado == true;
+      }
+
+      function intercambioAsignacionValida() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['destinatario_id'])
+          && d.keys().hasAll(['destinatario_id'])
+          && d.destinatario_id is string
+          && d.destinatario_id.size() >= 1
+          && d.destinatario_id != asignacionId;
+      }
+
+      allow read: if haySesion()
+        && (request.auth.uid == asignacionId || esAdmin()
+            || intercambioSorteoRevelado());
+      allow create, update: if esAdmin() && intercambioAsignacionValida();
       allow delete: if esAdmin();
     }
   }
