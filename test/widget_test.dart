@@ -22,6 +22,11 @@ Future<void> abrir(
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
   }
+  // El fondo animado es continuo: se pide movimiento reducido para que
+  // pumpAndSettle termine.
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(disableAnimations: true);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   await tester.pumpWidget(
     PosadaApp(
       authRepository:
