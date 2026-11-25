@@ -22,32 +22,40 @@ class CapturaFotoException implements Exception {
 /// [LimitesArbol.ladoFoto]x[LimitesArbol.ladoFoto], la codifica como JPEG y la
 /// devuelve en base64 (siempre dentro de [LimitesArbol.maxFotoBase64]).
 ///
+/// [lado] y [maxBase64] cambian el tamaño de la miniatura y el límite del
+/// texto (por defecto los de las esferas); el avatar del Cohetazo usa 96 px y
+/// 20000 caracteres.
+///
 /// Lanza [CapturaFotoException] si los bytes no son una imagen o no cabe en el
 /// límite.
-String procesarFoto(Uint8List bytes) {
+String procesarFoto(
+  Uint8List bytes, {
+  int lado = LimitesArbol.ladoFoto,
+  int maxBase64 = LimitesArbol.maxFotoBase64,
+}) {
   final origen = img.decodeImage(bytes);
   if (origen == null) {
     throw const CapturaFotoException(
       'No pudimos leer la foto. Intenta tomarla de nuevo.',
     );
   }
-  final lado = origen.width < origen.height ? origen.width : origen.height;
+  final corte = origen.width < origen.height ? origen.width : origen.height;
   final cuadrada = img.copyCrop(
     origen,
-    x: (origen.width - lado) ~/ 2,
-    y: (origen.height - lado) ~/ 2,
-    width: lado,
-    height: lado,
+    x: (origen.width - corte) ~/ 2,
+    y: (origen.height - corte) ~/ 2,
+    width: corte,
+    height: corte,
   );
   final miniatura = img.copyResize(
     cuadrada,
-    width: LimitesArbol.ladoFoto,
-    height: LimitesArbol.ladoFoto,
+    width: lado,
+    height: lado,
     interpolation: img.Interpolation.average,
   );
   for (final calidad in const [70, 55, 40, 25]) {
     final texto = base64Encode(img.encodeJpg(miniatura, quality: calidad));
-    if (texto.length <= LimitesArbol.maxFotoBase64) return texto;
+    if (texto.length <= maxBase64) return texto;
   }
   throw const CapturaFotoException(
     'La foto es demasiado grande. Intenta tomarla de nuevo.',

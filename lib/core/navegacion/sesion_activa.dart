@@ -7,6 +7,8 @@ import '../../features/arbol/viewmodels/arbol_view_model.dart';
 import '../../features/auth/models/usuario.dart';
 import '../../features/auth/repositories/admin_repository.dart';
 import '../../features/auth/viewmodels/sesion_view_model.dart';
+import '../../features/cohetazo/repositories/cohetazo_repository.dart';
+import '../../features/cohetazo/repositories/rtdb_cohetazo_repository.dart';
 import '../../features/evento/repositories/evento_repository.dart';
 import '../../features/evento/viewmodels/evento_view_model.dart';
 import '../../features/intercambio/repositories/intercambio_repository.dart';
@@ -43,6 +45,7 @@ class SesionActiva extends StatefulWidget {
     required this.itinerarioRepository,
     required this.arbolRepository,
     required this.intercambioRepository,
+    this.crearRepositorioCohetazo = RtdbCohetazoRepository.new,
     required this.onCerrarSesion,
   });
 
@@ -55,6 +58,9 @@ class SesionActiva extends StatefulWidget {
   final ItinerarioRepository itinerarioRepository;
   final ArbolRepository arbolRepository;
   final IntercambioRepository intercambioRepository;
+
+  /// Crea el repositorio de la arena del Cohetazo (Realtime Database).
+  final CohetazoRepository Function() crearRepositorioCohetazo;
   final VoidCallback onCerrarSesion;
 
   @override
@@ -190,6 +196,7 @@ class _SesionActivaState extends State<SesionActiva> {
       evento: _evento,
       participantes: _participantes,
       aportaciones: _aportaciones,
+      crearRepositorioCohetazo: widget.crearRepositorioCohetazo,
       child: ModulosScope(
         votacion: _modulos.votacion,
         itinerario: _modulos.itinerario,
