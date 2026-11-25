@@ -279,9 +279,10 @@ void main() {
     'Aportaciones',
     'Árbol',
     'Intercambio',
+    'Cohetazo',
   ];
 
-  testWidgets('angosto: los 7 destinos se alcanzan (los 3 últimos con «Más»)', (
+  testWidgets('angosto: los 8 destinos se alcanzan (los 4 últimos con «Más»)', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 800);
@@ -312,7 +313,24 @@ void main() {
     expect(find.byKey(const ValueKey('mas-Árbol')), findsNothing);
   });
 
-  testWidgets('ancho: el NavigationRail muestra los 7 destinos', (
+  testWidgets('Cohetazo: abre la pantalla de entrada, sin tocar la arena', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await abrir(tester);
+    await tester.tap(find.text('Más'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mas-Cohetazo')));
+    await tester.pumpAndSettle();
+    expect(find.text('Cohetazo navideño'), findsOneWidget);
+    expect(find.text('Entrar a la arena'), findsOneWidget);
+    expect(find.text('Jugarás como Ana'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ancho: el NavigationRail muestra los 8 destinos', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 500);

@@ -56,6 +56,7 @@ class DefaultFirebaseOptions {
     projectId: 'posada-dmi-2026',
     authDomain: 'posada-dmi-2026.firebaseapp.com',
     storageBucket: 'posada-dmi-2026.firebasestorage.app',
+    databaseURL: 'https://posada-dmi-2026-default-rtdb.firebaseio.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -64,5 +65,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '387658564854',
     projectId: 'posada-dmi-2026',
     storageBucket: 'posada-dmi-2026.firebasestorage.app',
+    databaseURL: 'https://posada-dmi-2026-default-rtdb.firebaseio.com',
   );
 }

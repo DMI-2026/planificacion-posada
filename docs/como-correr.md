@@ -75,6 +75,16 @@ Cómo encontrar la IP de tu computadora:
 
 **Primer paso en la app:** los emuladores empiezan vacíos. Crea una cuenta en la pantalla de registro (cada cuenta aparece sola en **Participantes**). Los datos se borran al detener el emulador salvo que lo inicies con `--import`/`--export-on-exit`.
 
+### Realtime Database (Cohetazo)
+
+El módulo Cohetazo usa Realtime Database además de Firestore. En el Modo B no hay que hacer nada extra: `firebase emulators:start` levanta también su emulador en el puerto 9000 (reglas en `database.rules.json`) y la app lo usa con `USAR_EMULADOR=true`. Para probar solo las reglas:
+
+```bash
+firebase emulators:exec --only database --project demo-posada "node test/database_rules/cohetazo_rules_test.js"
+```
+
+En el Modo A (datos reales) la instancia de Realtime Database **debe existir antes**: se crea una vez en la consola de Firebase (Build > Realtime Database) o con `firebase database:instances:create`, y su URL debe coincidir con `databaseURL` en `lib/firebase_options.dart` (por defecto `https://posada-dmi-2026-default-rtdb.firebaseio.com`). Luego se publican las reglas con `firebase deploy --only database`. En el Modo clase, abre también el puerto 9000 si los alumnos se conectan a tu máquina.
+
 ## 5. Modo clase (los alumnos se conectan a tu máquina)
 
 Para dar clase: tu computadora corre los emuladores, compila la app web y la sirve en la red; cada alumno solo abre una URL en Chrome. El script lo hace todo (detecta tu IP, reutiliza emuladores que ya estén corriendo o los inicia, compila y sirve):
@@ -143,6 +153,15 @@ En el taller de adornos, el patrón **Foto** de una esfera abre la cámara (webc
 - **Web:** el navegador solo da acceso a la cámara en **https o en `localhost`**. En el Modo clase (`http://<IP de tu compu>:...`) la cámara está bloqueada por el navegador: la app muestra un aviso y se conserva el patrón anterior. Para probar la foto en clase, sirve la app por https o ábrela en `localhost`. Además hay que aceptar el permiso de cámara del navegador.
 - **Android:** el permiso `CAMERA` está en `AndroidManifest.xml` y la app lo pide al abrir la cámara (`camera` requiere minSdk 23; el proyecto usa 24).
 - Sin cámara o con el permiso denegado, la app lo explica y no deja guardar una esfera «Foto» sin foto.
+
+### Cohetazo navideño (foto de avatar y cámara)
+
+Al entrar al juego se pide una foto de avatar con la misma captura de las esferas (cámara frontal, recorte cuadrado, miniatura de **96x96**, JPEG base64 de **≤ 20000 caracteres** en `/cohetazo/avatares/<uid>` de Realtime Database).
+
+- **Web:** la cámara solo funciona con **https o `localhost`**. En el Modo clase (http://<IP>) el navegador la bloquea: la pantalla de entrada explica el motivo, permite **Reintentar** y ofrece **«Jugar con mis iniciales»** (avatar de iniciales sobre un color, rotulado «sin foto») para poder jugar igual.
+- **Android:** usa el permiso `CAMERA` ya declarado.
+- **Controles:** flechas o WASD + barra espaciadora; en teléfono y pantallas angostas, D-pad y botón de cohete en pantalla (se pueden mostrar u ocultar con el botón del mando).
+- **Requiere Realtime Database** (emulador en el puerto 9000 en el Modo B; instancia creada en el Modo A). Sin ella la pantalla del juego muestra un error con **Reintentar**.
 
 ### Música del árbol
 

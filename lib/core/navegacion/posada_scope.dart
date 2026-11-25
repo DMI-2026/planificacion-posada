@@ -3,6 +3,8 @@ import 'package:flutter/widgets.dart';
 import '../../features/aportaciones/viewmodels/aportaciones_view_model.dart';
 import '../../features/arbol/viewmodels/arbol_view_model.dart';
 import '../../features/auth/viewmodels/sesion_view_model.dart';
+import '../../features/cohetazo/repositories/cohetazo_repository.dart';
+import '../../features/cohetazo/repositories/rtdb_cohetazo_repository.dart';
 import '../../features/evento/viewmodels/evento_view_model.dart';
 import '../../features/intercambio/viewmodels/intercambio_view_model.dart';
 import '../../features/itinerario/viewmodels/itinerario_view_model.dart';
@@ -20,6 +22,7 @@ class PosadaScope extends InheritedWidget {
     required this.evento,
     required this.participantes,
     required this.aportaciones,
+    this.crearRepositorioCohetazo = RtdbCohetazoRepository.new,
     required super.child,
   });
 
@@ -27,6 +30,10 @@ class PosadaScope extends InheritedWidget {
   final EventoViewModel evento;
   final ParticipantesViewModel participantes;
   final AportacionesViewModel aportaciones;
+
+  /// Crea el repositorio de la arena del Cohetazo (Realtime Database). Se
+  /// llama solo al entrar a jugar, no al abrir la app.
+  final CohetazoRepository Function() crearRepositorioCohetazo;
 
   static PosadaScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<PosadaScope>();

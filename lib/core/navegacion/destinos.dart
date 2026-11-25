@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../features/aportaciones/views/aportaciones_view.dart';
 import '../../features/arbol/views/arbol_view.dart';
+import '../../features/auth/viewmodels/sesion_view_model.dart';
+import '../../features/cohetazo/views/cohetazo_view.dart';
 import '../../features/evento/views/evento_view.dart';
 import '../../features/intercambio/views/intercambio_view.dart';
 import '../../features/itinerario/views/itinerario_view.dart';
@@ -78,6 +80,20 @@ final List<DestinoFeature> destinos = [
     builder: (context) {
       final vm = ModulosScope.of(context).intercambio;
       return IntercambioView(key: ObjectKey(vm), viewModel: vm);
+    },
+  ),
+  DestinoFeature(
+    etiqueta: 'Cohetazo',
+    icono: Icons.rocket_launch_outlined,
+    iconoSeleccionado: Icons.rocket_launch,
+    builder: (context) {
+      final scope = PosadaScope.of(context);
+      return CohetazoView(
+        key: ValueKey(scope.sesion.uid),
+        uid: scope.sesion.uid,
+        nombre: SesionViewModel.nombreParaParticipante(scope.sesion.usuario),
+        crearRepositorio: scope.crearRepositorioCohetazo,
+      );
     },
   ),
 ];

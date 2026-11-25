@@ -85,6 +85,29 @@ void main() {
       expect((im.width, im.height), (160, 160));
     });
 
+    test('lado y límite opcionales: miniatura de 96 px dentro de 20000', () {
+      final azar = math.Random(3);
+      final im = img.Image(width: 640, height: 480);
+      for (final p in im) {
+        p.setRgb(azar.nextInt(256), azar.nextInt(256), azar.nextInt(256));
+      }
+      final b64 = procesarFoto(
+        img.encodeJpg(im, quality: 95),
+        lado: 96,
+        maxBase64: 20000,
+      );
+      expect(b64.length, lessThanOrEqualTo(20000));
+      final salida = img.decodeJpg(base64Decode(b64))!;
+      expect((salida.width, salida.height), (96, 96));
+    });
+
+    test('un límite imposible lanza CapturaFotoException', () {
+      expect(
+        () => procesarFoto(_franjas(200, 200), maxBase64: 10),
+        throwsA(isA<CapturaFotoException>()),
+      );
+    });
+
     test('bytes que no son una imagen lanzan CapturaFotoException', () {
       expect(
         () => procesarFoto(Uint8List.fromList([1, 2, 3, 4])),

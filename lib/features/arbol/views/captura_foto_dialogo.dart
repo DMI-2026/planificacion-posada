@@ -2,23 +2,43 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../models/adorno.dart';
 import '../services/captura_foto.dart';
 
 /// Muestra la cámara en vivo y devuelve la miniatura base64 de la foto
 /// aceptada, o `null` si se cancela o la cámara no se pudo usar.
+///
+/// [titulo], [lado] y [maxBase64] son opcionales (por defecto los de las
+/// esferas); el avatar del Cohetazo los cambia.
 Future<String?> pedirFotoEsfera(
   BuildContext context,
-  CapturaFoto Function() crearCaptura,
-) => showDialog<String>(
+  CapturaFoto Function() crearCaptura, {
+  String titulo = 'Foto para la esfera',
+  int lado = LimitesArbol.ladoFoto,
+  int maxBase64 = LimitesArbol.maxFotoBase64,
+}) => showDialog<String>(
   context: context,
   barrierDismissible: false,
-  builder: (_) => _CapturaFotoDialogo(captura: crearCaptura()),
+  builder: (_) => _CapturaFotoDialogo(
+    captura: crearCaptura(),
+    titulo: titulo,
+    lado: lado,
+    maxBase64: maxBase64,
+  ),
 );
 
 class _CapturaFotoDialogo extends StatefulWidget {
-  const _CapturaFotoDialogo({required this.captura});
+  const _CapturaFotoDialogo({
+    required this.captura,
+    required this.titulo,
+    required this.lado,
+    required this.maxBase64,
+  });
 
   final CapturaFoto captura;
+  final String titulo;
+  final int lado;
+  final int maxBase64;
 
   @override
   State<_CapturaFotoDialogo> createState() => _CapturaFotoDialogoState();
@@ -54,7 +74,11 @@ class _CapturaFotoDialogoState extends State<_CapturaFotoDialogo> {
     setState(() => _ocupado = true);
     try {
       final bytes = await widget.captura.tomar();
-      final miniatura = procesarFoto(bytes);
+      final miniatura = procesarFoto(
+        bytes,
+        lado: widget.lado,
+        maxBase64: widget.maxBase64,
+      );
       if (!mounted) return;
       setState(() {
         _foto = miniatura;
@@ -152,7 +176,7 @@ class _CapturaFotoDialogoState extends State<_CapturaFotoDialogo> {
       ];
     }
     return AlertDialog(
-      title: const Text('Foto para la esfera'),
+      title: Text(widget.titulo),
       content: SizedBox(width: 280, child: cuerpo),
       actions: acciones,
     );
