@@ -19,7 +19,10 @@ enum PatronEsfera {
   liso,
   rayas,
   puntos,
-  estrellas;
+  estrellas,
+
+  /// La esfera lleva una foto (miniatura base64 en `foto`).
+  foto;
 
   String get clave => name;
 
@@ -31,11 +34,19 @@ enum PatronEsfera {
   }
 }
 
-/// Límites del árbol. IMPORTANTE: deben coincidir con `arbol.rules`.
+/// Límites del árbol. IMPORTANTE: deben coincidir con el bloque `arbol_adornos`
+/// de `firestore.rules`.
 abstract final class LimitesArbol {
   /// Adornos por persona (un slot 0..9 por adorno).
   static const int maxAdornos = 10;
   static const int maxMensaje = 60;
+
+  /// Máximo de caracteres de la miniatura en base64 (`foto`); igual que en las
+  /// reglas. Una miniatura de 160x160 JPEG pesa ~15 KB (~20 mil caracteres).
+  static const int maxFotoBase64 = 40000;
+
+  /// Lado en píxeles de la miniatura cuadrada de la foto.
+  static const int ladoFoto = 160;
 
   /// Cada cuánto se escribe la posición mientras se arrastra.
   static const Duration intervaloMovimiento = Duration(milliseconds: 250);
@@ -73,6 +84,7 @@ class Adorno {
     required this.color,
     this.patron,
     this.colorMono,
+    this.foto,
     this.mensaje = '',
     required this.x,
     required this.y,
@@ -80,9 +92,12 @@ class Adorno {
     this.actualizado,
   }) : assert(
          tipo == TipoAdorno.esfera
-             ? patron != null && colorMono == null
-             : colorMono != null && patron == null,
-         'La esfera lleva patrón; el regalo lleva color_mono',
+             ? patron != null &&
+                   colorMono == null &&
+                   (foto != null) == (patron == PatronEsfera.foto)
+             : colorMono != null && patron == null && foto == null,
+         'La esfera lleva patrón (y foto solo con el patrón foto); '
+         'el regalo lleva color_mono',
        );
 
   final String id;
@@ -97,6 +112,9 @@ class Adorno {
 
   /// Solo regalos: color del listón.
   final String? colorMono;
+
+  /// Solo esferas con patrón [PatronEsfera.foto]: miniatura JPEG en base64.
+  final String? foto;
   final String mensaje;
   final double x;
   final double y;
@@ -127,14 +145,20 @@ class Adorno {
     if (x is! num || y is! num || autor is! String || color is! String) {
       throw const FormatException('Adorno incompleto');
     }
+    final patron = tipo == TipoAdorno.esfera
+        ? PatronEsfera.desdeClave(map['patron'])
+        : null;
+    final foto = map['foto'];
+    if (patron == PatronEsfera.foto && (foto is! String || foto.isEmpty)) {
+      throw const FormatException('Esfera con foto sin foto');
+    }
     return Adorno(
       id: id,
       tipo: tipo,
       autorId: autor,
       color: color,
-      patron: tipo == TipoAdorno.esfera
-          ? PatronEsfera.desdeClave(map['patron'])
-          : null,
+      patron: patron,
+      foto: patron == PatronEsfera.foto ? foto as String : null,
       colorMono: tipo == TipoAdorno.regalo ? map['color_mono'] as String : null,
       mensaje: map['mensaje'] as String? ?? '',
       x: x.toDouble(),
@@ -152,6 +176,7 @@ class Adorno {
       'autor_id': autorId,
       'color': color,
       if (tipo == TipoAdorno.esfera) 'patron': patron!.clave,
+      if (foto != null) 'foto': foto,
       if (tipo == TipoAdorno.regalo) 'color_mono': colorMono,
       'mensaje': mensaje,
       'x': x,
@@ -159,20 +184,27 @@ class Adorno {
     };
   }
 
+  /// Copia con cambios. La [foto] solo se conserva con el patrón
+  /// [PatronEsfera.foto]: al pasar a otro patrón se descarta.
   Adorno copyWith({
     String? color,
     PatronEsfera? patron,
     String? colorMono,
+    String? foto,
     String? mensaje,
     double? x,
     double? y,
   }) {
+    final nuevoPatron = tipo == TipoAdorno.esfera
+        ? (patron ?? this.patron)
+        : null;
     return Adorno(
       id: id,
       tipo: tipo,
       autorId: autorId,
       color: color ?? this.color,
-      patron: tipo == TipoAdorno.esfera ? (patron ?? this.patron) : null,
+      patron: nuevoPatron,
+      foto: nuevoPatron == PatronEsfera.foto ? (foto ?? this.foto) : null,
       colorMono: tipo == TipoAdorno.regalo
           ? (colorMono ?? this.colorMono)
           : null,

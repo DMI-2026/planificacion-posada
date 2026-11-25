@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import '../models/adorno.dart';
+import 'fotos_esfera.dart';
 
 /// Convierte `#RRGGBB` en [Color] (gris si el texto no es válido).
 Color colorDeHex(String hex) {
@@ -31,6 +33,7 @@ String nombrePatron(PatronEsfera p) => switch (p) {
   PatronEsfera.rayas => 'Rayas',
   PatronEsfera.puntos => 'Puntos',
   PatronEsfera.estrellas => 'Estrellas',
+  PatronEsfera.foto => 'Foto',
 };
 
 Color _aclarar(Color c, double cuanto) {
@@ -58,30 +61,68 @@ Path caminoEstrella(Offset c, double radio, {double giro = -math.pi / 2}) {
 }
 
 /// Esfera: gradiente radial, dibujo del [patron], casquete dorado y brillo.
-class DibujoEsfera extends StatelessWidget {
+///
+/// Con el patrón [PatronEsfera.foto] y una [foto] (miniatura base64) válida, la
+/// foto llena la esfera dentro de un aro del [color]; si la foto no se puede
+/// decodificar, se dibuja la esfera lisa.
+class DibujoEsfera extends StatefulWidget {
   const DibujoEsfera({
     super.key,
     required this.color,
     required this.patron,
+    this.foto,
     this.tamano = 40,
   });
 
   final String color;
   final PatronEsfera patron;
+  final String? foto;
   final double tamano;
 
   @override
+  State<DibujoEsfera> createState() => _DibujoEsferaState();
+}
+
+class _DibujoEsferaState extends State<DibujoEsfera> {
+  ui.Image? _imagen;
+
+  String? get _fotoActiva =>
+      widget.patron == PatronEsfera.foto ? widget.foto : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolver();
+  }
+
+  @override
+  void didUpdateWidget(DibujoEsfera old) {
+    super.didUpdateWidget(old);
+    if (old.foto != widget.foto || old.patron != widget.patron) _resolver();
+  }
+
+  void _resolver() {
+    final foto = _fotoActiva;
+    _imagen = foto == null ? null : FotosEsfera.lista(foto);
+    if (foto == null || FotosEsfera.intentada(foto)) return;
+    FotosEsfera.cargar(foto).then((imagen) {
+      if (mounted && _fotoActiva == foto) setState(() => _imagen = imagen);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) => CustomPaint(
-    size: Size.square(tamano),
-    painter: _EsferaPainter(colorDeHex(color), patron),
+    size: Size.square(widget.tamano),
+    painter: _EsferaPainter(colorDeHex(widget.color), widget.patron, _imagen),
   );
 }
 
 class _EsferaPainter extends CustomPainter {
-  _EsferaPainter(this.color, this.patron);
+  _EsferaPainter(this.color, this.patron, [this.imagen]);
 
   final Color color;
   final PatronEsfera patron;
+  final ui.Image? imagen;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -114,6 +155,10 @@ class _EsferaPainter extends CustomPainter {
     canvas.save();
     canvas.clipPath(Path()..addOval(bola));
     _patron(canvas, c, r, s);
+    final foto = imagen;
+    if (patron == PatronEsfera.foto && foto != null) {
+      _fotoEnBola(canvas, foto, c, r, bola, s);
+    }
     canvas.restore();
 
     // Casquete y argolla dorados.
@@ -157,11 +202,59 @@ class _EsferaPainter extends CustomPainter {
     );
   }
 
+  /// La foto llena la bola dejando un aro del [color]; encima va el brillo.
+  void _fotoEnBola(
+    Canvas canvas,
+    ui.Image foto,
+    Offset c,
+    double r,
+    Rect bola,
+    double s,
+  ) {
+    final interior = Rect.fromCircle(center: c, radius: r * 0.84);
+    canvas.save();
+    canvas.clipPath(Path()..addOval(interior));
+    canvas.drawImageRect(
+      foto,
+      Rect.fromLTWH(0, 0, foto.width.toDouble(), foto.height.toDouble()),
+      interior,
+      Paint()
+        ..filterQuality = FilterQuality.medium
+        ..isAntiAlias = true,
+    );
+    canvas.restore();
+    canvas.drawCircle(
+      c,
+      r * 0.84,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1, s * 0.012)
+        ..color = Colors.black.withValues(alpha: 0.25),
+    );
+    // Brillo de cristal sobre toda la bola.
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.35, -0.4),
+          radius: 0.95,
+          colors: [
+            Colors.white.withValues(alpha: 0.3),
+            Colors.white.withValues(alpha: 0),
+            Colors.black.withValues(alpha: 0.32),
+          ],
+          stops: const [0, 0.5, 1],
+        ).createShader(bola),
+    );
+  }
+
   void _patron(Canvas canvas, Offset c, double r, double s) {
     final trazo = _contraste(color);
     final p = Paint()..color = trazo;
     switch (patron) {
       case PatronEsfera.liso:
+      case PatronEsfera.foto:
         break;
       case PatronEsfera.rayas:
         p
@@ -202,7 +295,7 @@ class _EsferaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_EsferaPainter old) =>
-      old.color != color || old.patron != patron;
+      old.color != color || old.patron != patron || old.imagen != imagen;
 }
 
 /// Regalo: caja con tapa, listón en cruz y moño.
@@ -334,6 +427,7 @@ class DibujoAdorno extends StatelessWidget {
       ? DibujoEsfera(
           color: adorno.color,
           patron: adorno.patron!,
+          foto: adorno.foto,
           tamano: tamano,
         )
       : DibujoRegalo(

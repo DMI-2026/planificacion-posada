@@ -287,7 +287,8 @@ service cloud.firestore {
 
     // Adornos del árbol virtual (`arbol_adornos/{uid}_{slot}`, slot 0..9): el id
     // limita a 10 adornos por persona. Paleta = PaletaArbol.colores y límites =
-    // LimitesArbol (lib/features/arbol/models/adorno.dart).
+    // LimitesArbol (lib/features/arbol/models/adorno.dart): el máximo de `foto`
+    // (40000 caracteres de base64) debe coincidir con LimitesArbol.maxFotoBase64.
     match /arbol_adornos/{adornoId} {
       function arbolPaleta() {
         return ['#D62839', '#FFC857', '#2EE6C8', '#FF4FD8', '#4F7CFF',
@@ -315,9 +316,15 @@ service cloud.firestore {
           && d.creado is timestamp
           && d.actualizado is timestamp
           && ((d.tipo == 'esfera'
-                && d.keys().hasOnly(comunes.concat(['patron']))
                 && d.keys().hasAll(comunes.concat(['patron']))
-                && d.patron in ['liso', 'rayas', 'puntos', 'estrellas'])
+                && ((d.patron in ['liso', 'rayas', 'puntos', 'estrellas']
+                      && d.keys().hasOnly(comunes.concat(['patron'])))
+                    // Patrón foto: lleva `foto` (miniatura JPEG en base64).
+                    || (d.patron == 'foto'
+                      && d.keys().hasOnly(comunes.concat(['patron', 'foto']))
+                      && d.keys().hasAll(comunes.concat(['patron', 'foto']))
+                      && d.foto is string
+                      && d.foto.size() > 0 && d.foto.size() <= 40000)))
               || (d.tipo == 'regalo'
                 && d.keys().hasOnly(comunes.concat(['color_mono']))
                 && d.keys().hasAll(comunes.concat(['color_mono']))

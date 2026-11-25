@@ -120,7 +120,7 @@ Teclas: `Enter` o `r` recompila, `q` sale (detiene el servidor y, si los inició
 | Comida (votación) | Propone platillos y los borra si son suyos; un voto (cambiable o retirable) mientras la votación está abierta | Borra cualquier platillo; cierra y reabre la votación (no vota por otros) |
 | Itinerario | Solo lee | Crea, edita y borra actividades |
 | Aportaciones | Se asigna o suelta materiales libres o suyos y marca listos los suyos; crea y edita el monto de su aportación económica mientras no se reciba, y la borra | Gestiona todo: materiales, aportaciones económicas de cualquiera, marcar recibido, meta y borrado |
-| Árbol virtual | Cuelga hasta 10 adornos propios; los mueve, edita y quita (solo participantes registrados) | Quita cualquier adorno |
+| Árbol virtual | Cuelga hasta 10 adornos propios (las esferas pueden llevar foto); los mueve, edita y quita (solo participantes registrados) | Quita cualquier adorno |
 | Intercambio | Se inscribe y edita sus deseos (hasta 3) con la inscripción abierta y sin sorteo; ve su asignación y, tras la revelación, todas | Abre y cierra la inscripción, hace el sorteo, lo revela y ve todas las asignaciones |
 
 - **Quitar a alguien** de la lista borra su documento `participantes/<uid>`; si esa persona vuelve a iniciar sesión, reaparece (sigue teniendo cuenta).
@@ -135,6 +135,23 @@ Teclas: `Enter` o `r` recompila, `q` sale (detiene el servidor y, si los inició
 4. La persona cierra sesión y vuelve a entrar para que la app lea su rol.
 
 Las reglas impiden que la app cree o edite `admins`: solo se hace a mano. Cada persona solo puede leer su propio documento de `admins`. En el emulador los datos se pierden al detenerlo, así que hay que repetirlo (o usar `--export-on-exit`).
+
+### Esferas con foto (cámara)
+
+En el taller de adornos, el patrón **Foto** de una esfera abre la cámara (webcam en Chrome, cámara frontal en Android): se toma la foto, se puede repetir y se acepta. La foto se recorta al centro en cuadrado, se reduce a **160x160** y se guarda como JPEG en base64 dentro del propio documento del adorno (`arbol_adornos/<uid>_<slot>`, campo `foto`, unos 15 KB). **No usa Firebase Storage.** Las reglas (y `LimitesArbol.maxFotoBase64`) limitan `foto` a **40000 caracteres**, y solo las esferas con patrón `foto` la llevan. Si cambias la esfera a otro patrón, la foto se quita del documento.
+
+- **Web:** el navegador solo da acceso a la cámara en **https o en `localhost`**. En el Modo clase (`http://<IP de tu compu>:...`) la cámara está bloqueada por el navegador: la app muestra un aviso y se conserva el patrón anterior. Para probar la foto en clase, sirve la app por https o ábrela en `localhost`. Además hay que aceptar el permiso de cámara del navegador.
+- **Android:** el permiso `CAMERA` está en `AndroidManifest.xml` y la app lo pide al abrir la cámara (`camera` requiere minSdk 23; el proyecto usa 24).
+- Sin cámara o con el permiso denegado, la app lo explica y no deja guardar una esfera «Foto» sin foto.
+
+### Música del árbol
+
+La vista del árbol toca «Jingle Bells» en loop (`assets/audio/jingle_bells.wav`, volumen 0.4) con el paquete `audioplayers`. La melodía es de dominio público y la genera el script `tool/generar_jingle_bells.dart`; no hay grabaciones de terceros.
+
+- **Autoplay:** los navegadores (Chrome, Safari) bloquean el audio hasta que la persona interactúa con la página. La app intenta arrancar al abrir el árbol y, si el navegador lo bloquea, arranca con el **primer toque** dentro del árbol. Mientras tanto el botón muestra la nota tachada.
+- El botón de nota musical (arriba en el árbol) silencia o reactiva la música. Al salir del árbol se detiene y se libera el reproductor.
+- Sin dispositivo de audio o con el audio bloqueado, la app no muestra errores: el botón queda en silencio.
+- **Regenerar el WAV** (mono, 16 bits, 22050 Hz, unos 1 MB): `dart run tool/generar_jingle_bells.dart`.
 
 ## 7. Pruebas
 
@@ -158,4 +175,5 @@ La prueba de reglas usa `FIRESTORE_EMULATOR_HOST` (lo define `emulators:exec`); 
 | `flutter pub get` falla por versión | Actualiza Flutter (`flutter upgrade`); necesitas 3.47+. |
 | En Android: "cleartext not permitted" o no conecta | Solo funciona en builds **debug** (`flutter run` lo es). Si usas teléfono físico, revisa `EMULADOR_HOST` y que estén en la misma Wi-Fi. |
 | La app muestra error de permisos | Inicia sesión (las reglas exigen sesión). En la nube, avisa al profesor si las reglas no están desplegadas. |
+| El patrón «Foto» dice que no hay permiso o cámara | Acepta el permiso de cámara del navegador. En web solo funciona con https o `localhost` (no con `http://<IP>`). Revisa que otra aplicación no use la cámara. |
 | No aparecen los botones de admin | Tu uid no tiene documento en `admins`; mira "Cómo nombrar admin" y vuelve a iniciar sesión. |

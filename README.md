@@ -9,7 +9,7 @@ App para organizar la posada de Navidad de la clase. Proyecto de la clase DMI-20
 3. **Comida (votación):** se proponen platillos y cada quien vota por uno; el admin cierra la votación.
 4. **Itinerario:** actividades de la noche en orden, con hora, duración y responsable.
 5. **Aportaciones:** material (quién lleva qué) y económicas (cuotas, con meta de recaudación).
-6. **Árbol virtual:** cada quien crea esferas y regalos y los cuelga; todos los ven en tiempo real.
+6. **Árbol virtual:** cada quien crea esferas y regalos y los cuelga; todos los ven en tiempo real. Las esferas pueden llevar una foto tomada con la cámara (patrón «Foto»). En el árbol suena «Jingle Bells» en loop (botón de nota musical para silenciar).
 7. **Intercambio de regalos:** inscripción con lista de deseos, sorteo y revelación de a quién le regalas.
 
 - **Plataformas:** Android y Chrome (web).
@@ -43,6 +43,10 @@ flutter test
 # Reglas de Firestore (requiere firebase-tools, Node 20+ y Java 21+): un archivo por módulo
 firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/rest_rules_test.js"
 ```
+
+## Música del árbol
+
+La vista del árbol reproduce «Jingle Bells» (dominio público, sintetizada con `tool/generar_jingle_bells.dart`, sin grabaciones de terceros) en loop a volumen bajo. Los navegadores bloquean el audio hasta que hay una interacción: si no arranca al abrir, empieza con el primer toque dentro del árbol. El botón de nota musical la silencia o la activa, y se detiene al salir de la vista. Para regenerar el WAV: `dart run tool/generar_jingle_bells.dart`.
 
 ## Estructura
 

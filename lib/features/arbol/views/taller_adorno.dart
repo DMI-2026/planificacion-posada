@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/efectos/efectos.dart';
 import '../models/adorno.dart';
+import '../services/captura_foto.dart';
 import '../viewmodels/arbol_view_model.dart';
+import 'captura_foto_dialogo.dart';
 import 'dibujos_adorno.dart';
 
 /// Hoja del «taller»: se elige tipo, colores, dibujo y mensaje con una vista
@@ -14,6 +16,7 @@ class TallerAdorno extends StatefulWidget {
     required this.viewModel,
     this.editando,
     this.alTerminar,
+    this.crearCaptura = CapturaFotoCamara.new,
   });
 
   final ArbolViewModel viewModel;
@@ -24,6 +27,10 @@ class TallerAdorno extends StatefulWidget {
   /// Se llama tras guardar con éxito; recibe `true` si se creó uno nuevo.
   final void Function(bool nuevo)? alTerminar;
 
+  /// Crea el acceso a la cámara para el patrón «foto» (las pruebas inyectan
+  /// uno falso).
+  final CapturaFoto Function() crearCaptura;
+
   @override
   State<TallerAdorno> createState() => _TallerAdornoState();
 }
@@ -33,6 +40,10 @@ class _TallerAdornoState extends State<TallerAdorno> {
   late String _color = widget.editando?.color ?? PaletaArbol.colores.first;
   late String _colorMono = widget.editando?.colorMono ?? PaletaArbol.colores[1];
   late PatronEsfera _patron = widget.editando?.patron ?? PatronEsfera.rayas;
+
+  /// Miniatura base64 de la esfera; se conserva al cambiar de patrón para no
+  /// repetir la foto si se vuelve a elegir «Foto».
+  late String? _foto = widget.editando?.foto;
   late final TextEditingController _mensaje = TextEditingController(
     text: widget.editando?.mensaje ?? '',
   );
@@ -47,6 +58,30 @@ class _TallerAdornoState extends State<TallerAdorno> {
     super.dispose();
   }
 
+  /// Elige el patrón; «Foto» abre la cámara (si aún no hay foto) y, si no se
+  /// logra una foto, se conserva el patrón anterior.
+  Future<void> _elegirPatron(PatronEsfera p) async {
+    if (p != PatronEsfera.foto || _foto != null) {
+      setState(() => _patron = p);
+      return;
+    }
+    await _tomarFoto(alCancelar: _patron);
+  }
+
+  Future<void> _tomarFoto({required PatronEsfera alCancelar}) async {
+    final foto = await pedirFotoEsfera(context, widget.crearCaptura);
+    if (!mounted) return;
+    setState(() {
+      if (foto != null) _foto = foto;
+      _patron = foto != null || _foto != null ? PatronEsfera.foto : alCancelar;
+    });
+  }
+
+  bool get _faltaFoto =>
+      _tipo == TipoAdorno.esfera &&
+      _patron == PatronEsfera.foto &&
+      _foto == null;
+
   Future<void> _guardar() async {
     final vm = widget.viewModel;
     setState(() {
@@ -60,6 +95,7 @@ class _TallerAdornoState extends State<TallerAdorno> {
         widget.editando!.id,
         color: _color,
         patron: _tipo == TipoAdorno.esfera ? _patron : null,
+        foto: _patron == PatronEsfera.foto ? _foto : null,
         colorMono: _tipo == TipoAdorno.regalo ? _colorMono : null,
         mensaje: mensaje,
       );
@@ -67,6 +103,7 @@ class _TallerAdornoState extends State<TallerAdorno> {
       ok = await vm.crearEsfera(
         color: _color,
         patron: _patron,
+        foto: _patron == PatronEsfera.foto ? _foto : null,
         mensaje: mensaje,
       );
     } else {
@@ -134,6 +171,7 @@ class _TallerAdornoState extends State<TallerAdorno> {
                 color: _color,
                 colorMono: _colorMono,
                 patron: _patron,
+                foto: _foto,
               ),
               if (!_edita)
                 Padding(
@@ -191,10 +229,20 @@ class _TallerAdornoState extends State<TallerAdorno> {
                         key: Key('patron-${p.clave}'),
                         label: Text(nombrePatron(p)),
                         selected: _patron == p,
-                        onSelected: (_) => setState(() => _patron = p),
+                        onSelected: (_) => _elegirPatron(p),
                       ),
                   ],
                 ),
+                if (_patron == PatronEsfera.foto && _foto != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const Key('retomar-foto'),
+                      onPressed: () => _tomarFoto(alCancelar: _patron),
+                      icon: const Icon(Icons.photo_camera),
+                      label: const Text('Tomar otra foto'),
+                    ),
+                  ),
               ] else ...[
                 Text('Color del listón', style: tema.textTheme.titleSmall),
                 const SizedBox(height: 8),
@@ -231,7 +279,9 @@ class _TallerAdornoState extends State<TallerAdorno> {
                 child: BotonBrillante(
                   etiqueta: _edita ? 'Guardar cambios' : 'Colgar en el árbol',
                   icono: _edita ? Icons.check : Icons.celebration,
-                  onPressed: (bloqueo != null || _guardando) ? null : _guardar,
+                  onPressed: (bloqueo != null || _guardando || _faltaFoto)
+                      ? null
+                      : _guardar,
                 ),
               ),
             ],
@@ -248,20 +298,23 @@ class _Vista extends StatelessWidget {
     required this.color,
     required this.colorMono,
     required this.patron,
+    required this.foto,
   });
 
   final TipoAdorno tipo;
   final String color;
   final String colorMono;
   final PatronEsfera patron;
+  final String? foto;
 
   @override
   Widget build(BuildContext context) {
     final dibujo = tipo == TipoAdorno.esfera
         ? DibujoEsfera(
-            key: ValueKey('esfera-$color-${patron.name}'),
+            key: ValueKey('esfera-$color-${patron.name}-${foto.hashCode}'),
             color: color,
             patron: patron,
+            foto: foto,
             tamano: 104,
           )
         : DibujoRegalo(

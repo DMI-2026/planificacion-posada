@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/efectos/efectos.dart';
 import '../models/adorno.dart';
+import '../services/captura_foto.dart';
+import '../services/musica_arbol.dart';
 import '../viewmodels/arbol_view_model.dart';
 import 'dibujos_adorno.dart';
 import 'pintor_arbol.dart';
@@ -14,9 +16,20 @@ import 'taller_adorno.dart';
 /// shell). Solo se arrastran los adornos propios; tocar uno muestra quién lo
 /// colgó y su mensaje.
 class ArbolView extends StatefulWidget {
-  const ArbolView({super.key, required this.viewModel});
+  const ArbolView({
+    super.key,
+    required this.viewModel,
+    this.crearCaptura = CapturaFotoCamara.new,
+    this.crearMusica = MusicaArbolAudio.new,
+  });
 
   final ArbolViewModel viewModel;
+
+  /// Crea el acceso a la cámara del taller (patrón «foto»).
+  final CapturaFoto Function() crearCaptura;
+
+  /// Crea el reproductor de la música de fondo (Jingle Bells en loop).
+  final MusicaArbol Function() crearMusica;
 
   @override
   State<ArbolView> createState() => _ArbolViewState();
@@ -42,6 +55,72 @@ class _ArbolViewState extends State<ArbolView>
   bool _inicializado = false;
   bool _reducido = false;
 
+  late final MusicaArbol _musica = widget.crearMusica();
+
+  /// Si la persona quiere música (activa por defecto hasta que la silencia).
+  bool _quiereMusica = true;
+  bool _sonando = false;
+
+  /// Los navegadores bloquean el autoplay: si el intento al abrir falla, se
+  /// reintenta una sola vez con el primer toque dentro de la vista.
+  bool _reintentoPendiente = false;
+  bool _toqueEnBoton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _arrancarMusica(alAbrir: true);
+  }
+
+  Future<void> _arrancarMusica({bool alAbrir = false}) async {
+    var ok = false;
+    try {
+      ok = await _musica.iniciar();
+    } catch (_) {
+      ok = false;
+    }
+    if (!mounted) return;
+    if (!_quiereMusica) {
+      // Se silenció mientras arrancaba.
+      if (ok) _detenerMusica();
+      return;
+    }
+    setState(() {
+      _sonando = ok;
+      _reintentoPendiente = alAbrir && !ok;
+    });
+  }
+
+  void _detenerMusica() {
+    _musica.pausar().catchError((Object _) {});
+  }
+
+  void _alternarMusica() {
+    if (_sonando) {
+      setState(() {
+        _quiereMusica = false;
+        _sonando = false;
+      });
+      _detenerMusica();
+    } else {
+      _quiereMusica = true;
+      _reintentoPendiente = false;
+      _arrancarMusica();
+    }
+  }
+
+  /// Primer toque en la vista tras un arranque bloqueado por el navegador.
+  void _alTocarVista() {
+    if (_toqueEnBoton) {
+      _toqueEnBoton = false;
+      return;
+    }
+    if (_reintentoPendiente && _quiereMusica && !_sonando) {
+      _reintentoPendiente = false;
+      _arrancarMusica();
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -57,6 +136,7 @@ class _ArbolViewState extends State<ArbolView>
 
   @override
   void dispose() {
+    _musica.liberar().catchError((Object _) {});
     _reloj.dispose();
     super.dispose();
   }
@@ -73,6 +153,7 @@ class _ArbolViewState extends State<ArbolView>
       constraints: const BoxConstraints(maxWidth: 560),
       builder: (hoja) => TallerAdorno(
         viewModel: _vm,
+        crearCaptura: widget.crearCaptura,
         editando: editando,
         alTerminar: (nuevo) {
           Navigator.of(hoja).pop();
@@ -112,29 +193,39 @@ class _ArbolViewState extends State<ArbolView>
           _inicializado = true;
           _conocidos.addAll(_vm.adornos.map((a) => a.id));
         }
-        return Column(
-          children: [
-            _Encabezado(viewModel: _vm, alCrear: () => _abrirTaller()),
-            if (_vm.error != null)
-              _Aviso(texto: _vm.error!, alCerrar: _vm.limpiarError),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, caja) {
-                  final ancho = math.min(
-                    caja.maxWidth,
-                    caja.maxHeight * _proporcion,
-                  );
-                  if (!ancho.isFinite || ancho <= 0) {
-                    return const SizedBox.shrink();
-                  }
-                  final area = Size(ancho, ancho / _proporcion);
-                  return Center(
-                    child: SizedBox.fromSize(size: area, child: _arbol(area)),
-                  );
-                },
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _alTocarVista(),
+          child: Column(
+            children: [
+              _Encabezado(
+                viewModel: _vm,
+                alCrear: () => _abrirTaller(),
+                sonando: _sonando,
+                alAlternarMusica: _alternarMusica,
+                alPulsarBoton: () => _toqueEnBoton = true,
               ),
-            ),
-          ],
+              if (_vm.error != null)
+                _Aviso(texto: _vm.error!, alCerrar: _vm.limpiarError),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, caja) {
+                    final ancho = math.min(
+                      caja.maxWidth,
+                      caja.maxHeight * _proporcion,
+                    );
+                    if (!ancho.isFinite || ancho <= 0) {
+                      return const SizedBox.shrink();
+                    }
+                    final area = Size(ancho, ancho / _proporcion);
+                    return Center(
+                      child: SizedBox.fromSize(size: area, child: _arbol(area)),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -282,10 +373,22 @@ class _ArbolViewState extends State<ArbolView>
 }
 
 class _Encabezado extends StatelessWidget {
-  const _Encabezado({required this.viewModel, required this.alCrear});
+  const _Encabezado({
+    required this.viewModel,
+    required this.alCrear,
+    required this.sonando,
+    required this.alAlternarMusica,
+    required this.alPulsarBoton,
+  });
 
   final ArbolViewModel viewModel;
   final VoidCallback alCrear;
+  final bool sonando;
+  final VoidCallback alAlternarMusica;
+
+  /// Avisa al contenedor de que el toque fue en el botón de música (para que
+  /// no cuente como el «primer toque» que arranca la melodía).
+  final VoidCallback alPulsarBoton;
 
   @override
   Widget build(BuildContext context) {
@@ -320,10 +423,25 @@ class _Encabezado extends StatelessWidget {
                   ],
                 ),
               ),
-              BotonBrillante(
-                etiqueta: 'Crear adorno',
-                icono: Icons.add,
-                onPressed: alCrear,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Listener(
+                    onPointerDown: (_) => alPulsarBoton(),
+                    child: IconButton(
+                      key: const Key('musica-toggle'),
+                      tooltip: sonando ? 'Silenciar música' : 'Activar música',
+                      onPressed: alAlternarMusica,
+                      icon: Icon(sonando ? Icons.music_note : Icons.music_off),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  BotonBrillante(
+                    etiqueta: 'Crear adorno',
+                    icono: Icons.add,
+                    onPressed: alCrear,
+                  ),
+                ],
               ),
             ],
           ),
