@@ -1,5 +1,5 @@
-// Prueba de las reglas de `arbol_adornos` (bloque en lib/features/arbol/arbol.rules,
-// que debe estar pegado en firestore.rules antes del `match /{document=**}` final).
+// Prueba de las reglas de `arbol_adornos` (bloque en firestore.rules;
+// incluye el patrón «foto» con su miniatura base64 `foto`, máx. 40000 caracteres).
 // Cómo correrla (desde la raíz del proyecto, requiere Node 18+ y firebase-tools):
 //   firebase emulators:exec --only firestore --project demo-posada "node test/firestore_rules/arbol_rules_test.js"
 // Usa FIRESTORE_EMULATOR_HOST (host:puerto) si existe; si no, 127.0.0.1:8080.
@@ -89,6 +89,21 @@ async function sembrar() {
   await t('tipo desconocido', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {tipo:'estrella'})));
   await t('patrón desconocido', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'lunares'})));
   await t('esfera sin patrón', false, () => set('arbol_adornos/u2_5', U2, sinClave(esf('u2'), 'patron')));
+  // --- foto (patrón «foto»: miniatura base64 en `foto`, máximo 40000 caracteres)
+  const FOTO = '/9j/4AAQSkZJRgABAQ'.repeat(50);
+  await t('esfera foto con foto válida', true, () => set('arbol_adornos/u2_6', U2, esf('u2', {patron:'foto', foto:FOTO})));
+  await t('esfera foto con foto de exactamente 40000', true, () => set('arbol_adornos/u2_7', U2, esf('u2', {patron:'foto', foto:'a'.repeat(40000)})));
+  await t('esfera foto con foto de 40001', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:'a'.repeat(40001)})));
+  await t('esfera foto con foto vacía', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:''})));
+  await t('esfera foto con foto que no es texto', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:5})));
+  await t('esfera foto con foto nula', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:null})));
+  await t('patrón foto sin la clave foto', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto'})));
+  for (const pat of ['liso', 'rayas', 'puntos', 'estrellas']) await t(`foto en esfera con patrón ${pat}`, false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:pat, foto:FOTO})));
+  await t('foto en un regalo', false, () => set('arbol_adornos/u2_5', U2, reg('u2', {foto:FOTO})));
+  await t('esfera foto con clave extra', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:FOTO, extra:1})));
+  await t('esfera foto con color_mono', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:FOTO, color_mono:'#D62839'})));
+  await t('foto sin patrón', false, () => set('arbol_adornos/u2_5', U2, sinClave(esf('u2', {foto:FOTO}), 'patron')));
+  await t('foto de otra persona en mi slot (autor ajeno)', false, () => set('arbol_adornos/u2_5', U2, esf('u1', {patron:'foto', foto:FOTO})));
   await t('esfera con color_mono', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {color_mono:'#D62839'})));
   await t('regalo sin color_mono', false, () => set('arbol_adornos/u2_5', U2, sinClave(reg('u2'), 'color_mono')));
   await t('regalo con patrón', false, () => set('arbol_adornos/u2_5', U2, reg('u2', {patron:'liso'})));
@@ -104,7 +119,33 @@ async function sembrar() {
   await t('autor mueve a x=1 y=0', true, () => upd('arbol_adornos/u1_1', U1, {x:D(1), y:D(0), actualizado:SERVER}));
   await t('autor edita color, patrón y mensaje', true, () => upd('arbol_adornos/u1_1', U1, {color:'#2EE6C8', patron:'estrellas', mensaje:'Nuevo', actualizado:SERVER}));
   await t('autor edita regalo (color_mono)', true, () => upd('arbol_adornos/u1_9', U1, {color_mono:'#2FBF71', mensaje:'', actualizado:SERVER}));
-  await t('mover a otra persona', false, () => upd('arbol_adornos/u2_0', U1, {x:D(0.3), y:D(0.3), actualizado:SERVER}));
+  // foto al editar (u2_6 y u2_7 ya tienen foto; u1_4 es rayas)
+  await t('mover una esfera con foto', true, () => upd('arbol_adornos/u2_6', U2, {x:D(0.3), y:D(0.3), actualizado:SERVER}));
+  await t('editar color de una esfera con foto', true, () => upd('arbol_adornos/u2_6', U2, {color:'#2EE6C8', actualizado:SERVER}));
+  await t('cambiar la foto por otra válida', true, () => upd('arbol_adornos/u2_6', U2, {foto:'/9j/otra', actualizado:SERVER}));
+  await t('cambiar la foto por una de 40001', false, () => upd('arbol_adornos/u2_6', U2, {foto:'a'.repeat(40001), actualizado:SERVER}));
+  await t('cambiar la foto por vacía', false, () => upd('arbol_adornos/u2_6', U2, {foto:'', actualizado:SERVER}));
+  await t('cambiar la foto por un número', false, () => upd('arbol_adornos/u2_6', U2, {foto:5, actualizado:SERVER}));
+  await t('esfera foto cambia a rayas sin quitar la foto', false, () => upd('arbol_adornos/u2_6', U2, {patron:'rayas', actualizado:SERVER}));
+  await t('esfera foto cambia a rayas quitando la foto', true, () => commit(U2, [{update:{name:name('arbol_adornos/u2_6'), fields:fields({patron:'rayas', actualizado:SERVER})}, updateMask:{fieldPaths:['patron','foto','actualizado']}, currentDocument:{exists:true}, updateTransforms: transforms({actualizado:SERVER})}]));
+  await t('esfera rayas cambia a foto sin foto', false, () => upd('arbol_adornos/u1_1', U1, {patron:'foto', actualizado:SERVER}));
+  await t('esfera rayas cambia a foto con foto', true, () => upd('arbol_adornos/u1_1', U1, {patron:'foto', foto:FOTO, actualizado:SERVER}));
+  await t('agregar foto a esfera que sigue en rayas', false, () => upd('arbol_adornos/u1_4', U1, {foto:FOTO, actualizado:SERVER}));
+  await t('agregar foto a un regalo', false, () => upd('arbol_adornos/u1_9', U1, {foto:FOTO, actualizado:SERVER}));
+  await t('cambiar un regalo a patrón foto', false, () => upd('arbol_adornos/u1_9', U1, {patron:'foto', foto:FOTO, actualizado:SERVER}));
+  await t('foto en esfera ajena (otro usuario)', false, () => upd('arbol_adornos/u2_7', U1, {foto:FOTO, actualizado:SERVER}));
+  const editarForma = (p, a, {color, patron, foto, mensaje}) => { const f = {color, patron, mensaje, actualizado:SERVER}; if (foto !== undefined) f.foto = foto;
+    return commit(a, [{update:{name:name(p), fields:fields(f)}, updateMask:{fieldPaths:['color','patron','foto','mensaje','actualizado']}, currentDocument:{exists:true}, updateTransforms: transforms(f)}]); };
+  await t('editar(): rayas->puntos borra foto inexistente', true, () => editarForma('arbol_adornos/u1_4', U1, {color:'#2EE6C8', patron:'puntos', mensaje:''}));
+  await t('editar(): rayas->foto', true, () => editarForma('arbol_adornos/u1_4', U1, {color:'#2EE6C8', patron:'foto', foto:FOTO, mensaje:''}));
+  await t('editar(): foto->foto nueva foto', true, () => editarForma('arbol_adornos/u1_4', U1, {color:'#FFC857', patron:'foto', foto:'/9j/nueva', mensaje:'hola'}));
+  await t('editar(): patrón foto sin foto (borrada)', false, () => editarForma('arbol_adornos/u1_4', U1, {color:'#FFC857', patron:'foto', mensaje:'hola'}));
+  await t('editar(): otra persona cambia la foto', false, () => editarForma('arbol_adornos/u1_4', U2, {color:'#FFC857', patron:'foto', foto:'/9j/x', mensaje:''}));
+  await t('editar(): foto->rayas', true, () => editarForma('arbol_adornos/u1_4', U1, {color:'#FFC857', patron:'rayas', mensaje:''}));
+  await t('foto como bytes', false, () => commit(U2, [{update:{name:name('arbol_adornos/u2_5'), fields:{...fields(esf('u2',{patron:'foto'})), foto:{bytesValue:'YWJj'}}}, updateTransforms: transforms(esf('u2'))}]));
+  await t('esfera foto: color fuera de paleta', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:FOTO, color:'#000000'})));
+  await t('esfera foto: creado del cliente', false, () => set('arbol_adornos/u2_5', U2, esf('u2', {patron:'foto', foto:FOTO, creado:new Date('2020-01-01')})));
+  await t('mover a otra persona', false,() => upd('arbol_adornos/u2_0', U1, {x:D(0.3), y:D(0.3), actualizado:SERVER}));
   await t('admin no mueve adornos ajenos', false, () => upd('arbol_adornos/u1_1', ADMIN, {x:D(0.3), y:D(0.3), actualizado:SERVER}));
   await t('anon no mueve', false, () => upd('arbol_adornos/u1_1', null, {x:D(0.3), y:D(0.3), actualizado:SERVER}));
   await t('mover x fuera de [0,1]', false, () => upd('arbol_adornos/u1_1', U1, {x:D(1.2), actualizado:SERVER}));

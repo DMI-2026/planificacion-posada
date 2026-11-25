@@ -11,7 +11,7 @@ abstract class ArbolRepository {
   /// Cambia solo la posición.
   Future<void> mover(String id, double x, double y);
 
-  /// Cambia color, patrón/listón y mensaje (no tipo, autor ni posición).
+  /// Cambia color, patrón (y foto)/listón y mensaje (no tipo, autor ni posición).
   Future<void> editar(Adorno adorno);
 
   Future<void> eliminar(String id);

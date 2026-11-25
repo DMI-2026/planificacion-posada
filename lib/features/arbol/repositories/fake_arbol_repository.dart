@@ -85,6 +85,7 @@ class FakeArbolRepository implements ArbolRepository {
     _lista[i] = _lista[i].copyWith(
       color: adorno.color,
       patron: adorno.patron,
+      foto: adorno.foto,
       colorMono: adorno.colorMono,
       mensaje: adorno.mensaje,
     );

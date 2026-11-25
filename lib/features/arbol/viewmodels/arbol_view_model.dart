@@ -112,17 +112,20 @@ class ArbolViewModel extends ChangeNotifier {
   Future<bool> crearEsfera({
     required String color,
     required PatronEsfera patron,
+    String? foto,
     String mensaje = '',
   }) {
     return _crear(
       mensaje: mensaje,
       colores: [color],
+      errorExtra: _validarFoto(patron, foto),
       construir: (id, m, p) => Adorno(
         id: id,
         tipo: TipoAdorno.esfera,
         autorId: uid,
         color: color,
         patron: patron,
+        foto: patron == PatronEsfera.foto ? foto : null,
         mensaje: m,
         x: p.dx,
         y: p.dy,
@@ -155,6 +158,7 @@ class ArbolViewModel extends ChangeNotifier {
   Future<bool> _crear({
     required String mensaje,
     required List<String> colores,
+    String? errorExtra,
     required Adorno Function(String id, String mensaje, Offset pos) construir,
   }) async {
     if (!esParticipante) {
@@ -169,7 +173,7 @@ class ArbolViewModel extends ChangeNotifier {
         'Quita uno para colgar otro.',
       );
     }
-    final errorDatos = _validar(colores, mensaje);
+    final errorDatos = _validar(colores, mensaje) ?? errorExtra;
     if (errorDatos != null) return _fallo(errorDatos);
     final adorno = construir(
       Adorno.idDe(uid, slot),
@@ -177,6 +181,16 @@ class ArbolViewModel extends ChangeNotifier {
       _posicionLibre(),
     );
     return _ejecutar(() => _repository.crear(adorno), 'colgar el adorno');
+  }
+
+  /// La esfera con patrón foto necesita una foto no vacía y dentro del límite.
+  String? _validarFoto(PatronEsfera? patron, String? foto) {
+    if (patron != PatronEsfera.foto) return null;
+    if (foto == null || foto.isEmpty) return 'Toma una foto para la esfera.';
+    if (foto.length > LimitesArbol.maxFotoBase64) {
+      return 'La foto es demasiado grande. Toma otra.';
+    }
+    return null;
   }
 
   String? _validar(List<String> colores, String mensaje) {
@@ -272,12 +286,13 @@ class ArbolViewModel extends ChangeNotifier {
 
   // --- editar y eliminar -----------------------------------------------------
 
-  /// Cambia color, patrón (esfera) o listón (regalo) y mensaje de un adorno
+  /// Cambia color, patrón y foto (esfera) o listón (regalo) y mensaje de un adorno
   /// propio. Lo que no se indica se conserva.
   Future<bool> editar(
     String id, {
     String? color,
     PatronEsfera? patron,
+    String? foto,
     String? colorMono,
     String? mensaje,
   }) async {
@@ -286,9 +301,16 @@ class ArbolViewModel extends ChangeNotifier {
     if (!puedeEditar(a)) {
       return _fallo('Solo puedes editar tus propios adornos.');
     }
+    final patronNuevo = patron ?? a.patron;
+    final fotoNueva = patronNuevo == PatronEsfera.foto
+        ? (foto ?? a.foto)
+        : null;
+    final errorFoto = _validarFoto(patronNuevo, fotoNueva);
+    if (errorFoto != null) return _fallo(errorFoto);
     final nuevo = a.copyWith(
       color: color,
       patron: patron,
+      foto: foto,
       colorMono: colorMono,
       mensaje: mensaje?.trim(),
     );

@@ -63,6 +63,9 @@ class FirestoreArbolRepository implements ArbolRepository {
   Future<void> editar(Adorno adorno) => _coleccion.doc(adorno.id).update({
     'color': adorno.color,
     if (adorno.tipo == TipoAdorno.esfera) 'patron': adorno.patron!.clave,
+    // Con otro patrón la foto se quita del documento (las reglas lo exigen).
+    if (adorno.tipo == TipoAdorno.esfera)
+      'foto': adorno.foto ?? FieldValue.delete(),
     if (adorno.tipo == TipoAdorno.regalo) 'color_mono': adorno.colorMono,
     'mensaje': adorno.mensaje,
     'actualizado': FieldValue.serverTimestamp(),
